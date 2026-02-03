@@ -1,6 +1,5 @@
 # Core ML packages
 tensorflow==2.19.0
-tensorflow-intel==2.19.0
 keras==3.13.2
 jax==0.4.38
 jaxlib==0.4.38
