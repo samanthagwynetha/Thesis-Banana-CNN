@@ -2,7 +2,8 @@ import os
 import json
 import numpy as np
 from PIL import Image
-from tensorflow.keras.models import load_model # type: ignore
+from tensorflow.keras.models import load_model
+from keras.preprocessing import image
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(CURRENT_DIR, 'enhanced_resnet50_final_fixed.keras')
