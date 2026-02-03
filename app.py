@@ -26,30 +26,39 @@ def upload():
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'image' not in request.files:
-        return "No file uploaded"
+        return "No file uploaded", 400
 
     file = request.files['image']
     filename = file.filename
 
     if not filename:
-        return "No selected file"
+        return "No selected file", 400
 
     if allowed_file(filename):
         safe_filename = secure_filename(filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], safe_filename)
         file.save(filepath)
 
+        # Get prediction from real model
         result = predict_image(filepath)
+        
+        if not result['success']:
+            return f"Prediction error: {result['error']}", 500
 
         return render_template(
             'result.html',
-            image_path=filepath,
+            image_path=safe_filename,
             disease=result['disease'],
+            disease_name=result['disease_name'],
             confidence=result['confidence'],
-            description=result['description']
+            confidence_level=result['confidence_level'],
+            severity=result['severity'],
+            description=result['description'],
+            symptoms=result.get('symptoms', ''),
+            treatment=result.get('treatment', '')
         )
 
-    return "Invalid file format"
+    return "Invalid file format", 400
 
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
