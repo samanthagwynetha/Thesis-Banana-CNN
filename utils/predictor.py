@@ -2,7 +2,7 @@ import os
 import json
 import numpy as np
 from PIL import Image
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model #type: ignore
 from keras.preprocessing import image
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
