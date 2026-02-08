@@ -6,8 +6,8 @@ from tensorflow.keras.models import load_model #type: ignore
 from keras.preprocessing import image
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(CURRENT_DIR, 'enhanced_resnet50_final_fixed.keras')
-CLASS_MAPPING_PATH = os.path.join(CURRENT_DIR, 'class_indices.json')
+MODEL_PATH = os.path.join(CURRENT_DIR, 'enhanced_resnet50_deployment_v3.keras')
+CLASS_MAPPING_PATH = os.path.join(CURRENT_DIR, 'class_indices_v3.json')
 
 # Load model
 try:
