@@ -1,0 +1,68 @@
+{
+  "version_info": {
+    "version": "v2",
+    "timestamp": "20260206_041317",
+    "deployment_date": "2026-02-06 04:13:19"
+  },
+  "model_name": "Enhanced ResNet50 - Banana Leaf Disease Detection",
+  "architecture": "ResNet50 with internal optimizations",
+  "classes": [
+    "Cordana",
+    "Sanas",
+    "SigatokaNegra"
+  ],
+  "num_classes": 3,
+  "input_shape": [
+    224,
+    224,
+    3
+  ],
+  "preprocessing": {
+    "rescale": "1/255 (normalize to [0,1])",
+    "resize": "224x224 RGB"
+  },
+  "performance": {
+    "test_accuracy": 0.8666666746139526,
+    "test_precision": 0.8651093807934742,
+    "test_recall": 0.8666666666666667,
+    "test_f1": 0.8657219598036493,
+    "test_loss": 0.9460214972496033,
+    "inference_speed_img_per_sec": 196.0207544896747
+  },
+  "training_info": {
+    "training_time_minutes": 19.327818973859152,
+    "epochs_completed": 100,
+    "batch_size": 32,
+    "optimizer": "AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0001,
+    "mixed_precision": "FP16",
+    "early_stopping_patience": 15
+  },
+  "enhancements": [
+    "Partial layer freezing (Conv1-Conv2 frozen, Conv3-Conv5 trainable)",
+    "Batch normalization after Conv5 and Dense layer",
+    "Global Average Pooling (replaces Flatten)",
+    "Dense layer 512 units (vs 256 in baseline)",
+    "Dropout 0.3 (vs 0.4 in baseline)",
+    "AdamW optimizer with weight decay (1e-4)",
+    "Cosine learning rate scheduler",
+    "Mixed precision training (FP16)",
+    "Early stopping mechanism"
+  ],
+  "comparison_vs_baseline": {
+    "accuracy_improvement": "+3.33%",
+    "time_reduction": "-0.9%",
+    "baseline_accuracy": "83.33%",
+    "enhanced_accuracy": "86.67%",
+    "baseline_time_min": "19.15",
+    "enhanced_time_min": "19.33"
+  },
+  "files": {
+    "model_keras": "enhanced_resnet50_deployment_v2.keras",
+    "model_h5": "enhanced_resnet50_deployment_v2.h5",
+    "class_indices": "class_indices_v2.json",
+    "metadata": "model_metadata_v2.json"
+  },
+  "deployment_notes": "See Section 2.6 for Flask/TFLite deployment instructions"
+}
