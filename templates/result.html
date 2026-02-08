@@ -10,309 +10,169 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        .dark-bg {
+            background: #0a0a0a;
+        }
+        .progress-bar {
+            height: 8px;
+            background: rgba(100, 116, 139, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: currentColor;
+            transition: width 0.3s ease;
+        }
     </style>
 </head>
-<body class="bg-gray-50">
-    <!-- Header Navigation -->
-    <header class="bg-white shadow-sm">
-        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center space-x-2">
-                    <div class="bg-green-600 rounded-lg p-2">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                        </svg>
-                    </div>
-                    <span class="text-xl font-semibold text-gray-900">
-                        Banana<span class="text-green-600">Leaf</span> AI
-                    </span>
-                </div>
-
-                <div class="hidden md:flex items-center space-x-8">
-                    <a href="/" class="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                        </svg>
-                        <span>Home</span>
-                    </a>
-                    <a href="/#about" class="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <span>About Model</span>
-                    </a>
-                    <a href="/#instructions" class="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                        </svg>
-                        <span>Instructions</span>
-                    </a>
-                    <a href="/#contact" class="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        <span>Contact</span>
-                    </a>
-                </div>
-
-                <button id="mobile-menu-button" class="md:hidden text-gray-700 hover:text-green-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                </button>
-            </div>
-
-            <div id="mobile-menu" class="hidden md:hidden pb-4">
-                <div class="flex flex-col space-y-3">
-                    <a href="/" class="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors py-2 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                        </svg>
-                        <span>Home</span>
-                    </a>
-                    <a href="/#about" class="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors py-2 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <span>About Model</span>
-                    </a>
-                    <a href="/#instructions" class="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors py-2 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                        </svg>
-                        <span>Instructions</span>
-                    </a>
-                    <a href="/#contact" class="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors py-2 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        <span>Contact</span>
-                    </a>
-                </div>
-            </div>
-        </nav>
-    </header>
-
+<body class="dark-bg">
     <!-- Main Content - Results -->
-    <main class="min-h-screen py-12">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- Results Card -->
-            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <!-- Header Section -->
-                <div class="bg-green-600 text-white text-center py-8 px-6">
-                    <h1 class="text-3xl font-bold mb-2">Analysis Complete!</h1>
-                    <p class="text-green-100">AI-Powered Disease Detection Results</p>
+    <main class="min-h-screen py-20" style="background: linear-gradient(180deg, #0b0d0f 0%, #0f1216 60%, #0b0d0f 100%);">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Header -->
+            <div class="text-center mb-12">
+                <div class="inline-flex items-center space-x-2 text-green-400 text-xs tracking-[0.4em] uppercase mb-6">
+                    <span>Analysis Results</span>
+                </div>
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Model Comparison</h1>
+            </div>
+
+            <!-- Image Preview -->
+            <div class="flex justify-center mb-12">
+                <div class="bg-gray-800 bg-opacity-60 rounded-2xl p-3 border border-green-500">
+                    <!-- <img src="{{ url_for('static', filename='uploads/' + image_path) }}"  -->
+                    <img src="{{ url_for('static', filename='assets/hero-bg.jpg') }}" 
+                        alt="Analyzed banana leaf" 
+                        class="w-48 h-auto rounded-lg">
+                </div>
+            </div>
+
+
+            <!-- Comparison Cards -->
+            <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                <!-- Baseline Model Card -->
+                <div class="bg-gray-800 bg-opacity-60 border border-gray-700 rounded-2xl p-6">
+                    <div class="mb-5">
+                        <h3 class="text-lg font-semibold text-gray-300 mb-1">Baseline Model</h3>
+                        <p class="text-xs text-gray-500">Standard ResNet50</p>
+                    </div>
+
+                    <!-- Predicted Class -->
+                    <div class="mb-6">
+                        <div class="flex items-center space-x-2 mb-3">
+                            <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m7 7a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Predicted Class</p>
+                                <p class="text-xl font-bold text-white">Black Sigatoka</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Confidence Score -->
+                    <div class="mb-6">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-xs text-gray-500 mb-2">Confidence Score</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 progress-bar bg-gray-700 mr-3">
+                                        <div class="progress-fill text-gray-400" style="width: 84%"></div>
+                                    </div>
+                                    <span class="text-base font-bold text-gray-400">84%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inference Time -->
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 2m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Inference Time</p>
+                                <p class="text-base font-semibold text-white">103 ms</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Image Section -->
-                <div class="bg-gray-100 p-6 flex justify-center">
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden max-w-md w-full">
-                        <img src="{{ url_for('static', filename='uploads/' + image_path) }}" 
-                             alt="Analyzed banana leaf" 
-                             class="w-full h-auto">
+                <!-- Enhanced Model Card -->
+                <div class="bg-gray-800 bg-opacity-60 border border-green-500 rounded-2xl p-6 relative">
+                    <div class="absolute top-4 right-4">
+                        <span class="inline-flex items-center bg-green-500 bg-opacity-20 border border-green-500 text-green-400 px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase">Optimized</span>
                     </div>
-                </div>
 
-                <!-- Main Result -->
-                <div class="p-8">
-                    <!-- Primary Result Card -->
-                    <div class="{% if severity == 'Severe' %}bg-red-50 border-red-500{% elif severity == 'Moderate' %}bg-orange-50 border-orange-500{% else %}bg-green-50 border-green-500{% endif %} border-2 rounded-xl p-6 mb-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <div>
-                                <h2 class="text-2xl font-bold {% if severity == 'Severe' %}text-red-900{% elif severity == 'Moderate' %}text-orange-900{% else %}text-green-900{% endif %} mb-1">
-                                    {{ disease_name }}
-                                </h2>
-                                <p class="{% if severity == 'Severe' %}text-red-700{% elif severity == 'Moderate' %}text-orange-700{% else %}text-green-700{% endif %} font-medium">
-                                    Disease Code: {{ disease }}
-                                </p>
+                    <div class="mb-5">
+                        <h3 class="text-lg font-semibold text-green-400 mb-1">Enhanced Model</h3>
+                        <p class="text-xs text-gray-500">Optimized ResNet50</p>
+                    </div>
+
+                    <!-- Predicted Class -->
+                    <div class="mb-6">
+                        <div class="flex items-center space-x-2 mb-3">
+                            <div class="w-7 h-7 rounded-full bg-green-600 bg-opacity-20 flex items-center justify-center text-green-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m7 7a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
                             </div>
-                            <div class="text-right">
-                                <div class="text-3xl font-bold {% if severity == 'Severe' %}text-red-900{% elif severity == 'Moderate' %}text-orange-900{% else %}text-green-900{% endif %}">
-                                    {{ confidence }}%
+                            <div>
+                                <p class="text-xs text-gray-500">Predicted Class</p>
+                                <p class="text-xl font-bold text-green-400">Black Sigatoka</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Confidence Score -->
+                    <div class="mb-6">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <div class="w-7 h-7 rounded-full bg-green-600 bg-opacity-20 flex items-center justify-center text-green-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-xs text-gray-500 mb-2">Confidence Score</p>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 progress-bar bg-gray-700 mr-3">
+                                        <div class="progress-fill text-green-400" style="width: 95.2%"></div>
+                                    </div>
+                                    <span class="text-base font-bold text-green-400">95.2%</span>
                                 </div>
-                                <div class="text-sm {% if severity == 'Severe' %}text-red-600{% elif severity == 'Moderate' %}text-orange-600{% else %}text-green-600{% endif %}">
-                                    Confidence
-                                </div>
                             </div>
-                        </div>
-                        
-                        <!-- Badges -->
-                        <div class="flex flex-wrap gap-2">
-                            <!-- Confidence Level Badge -->
-                            {% if confidence >= 90 %}
-                                <span class="inline-flex items-center bg-green-200 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    Very High Confidence
-                                </span>
-                            {% elif confidence >= 75 %}
-                                <span class="inline-flex items-center bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    High Confidence
-                                </span>
-                            {% else %}
-                                <span class="inline-flex items-center bg-yellow-200 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                                    </svg>
-                                    Moderate Confidence
-                                </span>
-                            {% endif %}
-                            
-                            <!-- Severity Badge -->
-                            {% if severity == 'Severe' %}
-                                <span class="inline-flex items-center bg-red-200 text-red-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                                    </svg>
-                                     Severe Disease
-                                </span>
-                            {% elif severity == 'Moderate' %}
-                                <span class="inline-flex items-center bg-orange-200 text-orange-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    Moderate Severity
-                                </span>
-                            {% else %}
-                                <span class="inline-flex items-center bg-green-200 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                     Healthy
-                                </span>
-                            {% endif %}
                         </div>
                     </div>
 
-                    <!-- Description Section -->
-                    <div class="bg-gray-50 rounded-xl p-6 mb-6">
-                        <div class="flex items-start space-x-3">
-                            <svg class="w-6 h-6 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
+                    <!-- Inference Time -->
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-full bg-green-600 bg-opacity-20 flex items-center justify-center text-green-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 2m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
                             <div>
-                                <h3 class="font-semibold text-gray-900 mb-2">Description</h3>
-                                <p class="text-gray-700">{{ description }}</p>
+                                <p class="text-xs text-gray-500">Inference Time</p>
+                                <p class="text-base font-semibold text-green-400">92 ms</p>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Symptoms Section -->
-                    {% if symptoms %}
-                    <div class="bg-blue-50 rounded-xl p-6 mb-6">
-                        <div class="flex items-start space-x-3">
-                            <svg class="w-6 h-6 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                            </svg>
-                            <div>
-                                <h3 class="font-semibold text-gray-900 mb-2">Visible Symptoms</h3>
-                                <p class="text-gray-700">{{ symptoms }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Treatment Section -->
-                    {% if treatment %}
-                    <div class="bg-yellow-50 rounded-xl p-6 mb-6">
-                        <div class="flex items-start space-x-3">
-                            <svg class="w-6 h-6 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                            </svg>
-                            <div>
-                                <h3 class="font-semibold text-gray-900 mb-2">Recommended Treatment</h3>
-                                <p class="text-gray-700">{{ treatment }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Action Buttons -->
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <a href="/upload" class="bg-green-600 text-white py-3 px-6 rounded-xl font-semibold text-center hover:bg-green-700 transition-colors flex items-center justify-center space-x-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                            </svg>
-                            <span>Analyze Another Leaf</span>
-                        </a>
-                        <a href="/#disease-info" class="bg-white border-2 border-green-600 text-green-600 py-3 px-6 rounded-xl font-semibold text-center hover:bg-green-50 transition-colors flex items-center justify-center space-x-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span>Learn More About Diseases</span>
-                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </main>
-
-    <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200 mt-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div class="grid md:grid-cols-3 gap-8 mb-8">
-                <div>
-                    <div class="flex items-center space-x-2 mb-4">
-                        <div class="bg-green-600 rounded-lg p-2">
-                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                            </svg>
-                        </div>
-                        <span class="text-xl font-semibold text-gray-900">
-                            Banana<span class="text-green-600">Leaf</span> AI
-                        </span>
-                    </div>
-                    <p class="text-gray-600 text-sm">
-                        AI-powered banana leaf disease detection system designed to help farmers identify and manage plant diseases quickly and accurately.
-                    </p>
-                </div>
-
-                <div>
-                    <h3 class="font-semibold text-gray-900 mb-4">Quick Links</h3>
-                    <ul class="space-y-2 text-sm">
-                        <li><a href="/" class="text-gray-600 hover:text-green-600 transition-colors">Home</a></li>
-                        <li><a href="/#about" class="text-gray-600 hover:text-green-600 transition-colors">About Model</a></li>
-                        <li><a href="/#instructions" class="text-gray-600 hover:text-green-600 transition-colors">Instructions</a></li>
-                        <li><a href="/#disease-info" class="text-gray-600 hover:text-green-600 transition-colors">Disease Information</a></li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h3 class="font-semibold text-gray-900 mb-4">Contact</h3>
-                    <ul class="space-y-3 text-sm">
-                        <li class="flex items-center space-x-2 text-gray-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                            </svg>
-                            <span>support@bananaleaf.ai</span>
-                        </li>
-                        <li class="flex items-center space-x-2 text-gray-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span>www.bananaleaf.ai</span>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-600">
-                <p>&copy; <script>document.write(new Date().getFullYear())</script> BananaLeaf AI. All rights reserved.</p>
-                <p class="flex items-center space-x-1 mt-4 md:mt-0">
-                    <span>Made with</span>
-                    <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
-                    </svg>
-                    <span>for farmers everywhere</span>
-                </p>
-            </div>
-        </div>
-    </footer>
 
     <script>
         const mobileMenuButton = document.getElementById('mobile-menu-button');
