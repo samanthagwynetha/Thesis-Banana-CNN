@@ -1,4 +1,5 @@
 import os
+import time
 from utils.models.common import preprocess_image
 from utils.models import baseline_predict, enhanced_predict
 
@@ -45,9 +46,21 @@ def predict_image(image_path):
 
     img_array = preprocess_image(image_path)
 
+    # Measure baseline inference time
+    baseline_start = time.time()
+    baseline_result = baseline_predict(img_array)
+    baseline_time = (time.time() - baseline_start) * 1000  # Convert to milliseconds
+
+    # Measure enhanced inference time
+    enhanced_start = time.time()
+    enhanced_result = enhanced_predict(img_array)
+    enhanced_time = (time.time() - enhanced_start) * 1000  # Convert to milliseconds
+
     return {
         "success": True,
-        "baseline": enrich(baseline_predict(img_array)),
-        "enhanced": enrich(enhanced_predict(img_array)),
+        # "baseline": enrich(baseline_predict(img_array)),
+        # "enhanced": enrich(enhanced_predict(img_array)),
+        "baseline": {**enrich(baseline_result), "inference_time_ms": round(baseline_time, 2)},
+        "enhanced": {**enrich(enhanced_result), "inference_time_ms": round(enhanced_time, 2)},
     }
 
