@@ -1,3 +1,4 @@
+from multiprocessing import dummy
 import os
 import json
 import numpy as np
@@ -26,7 +27,8 @@ with open(CLASS_MAPPING_PATH) as f:
 INDEX_TO_CLASS = {v: k for k, v in CLASS_MAPPING.items()}
 
 def predict(img_array):
-    interpreter.set_tensor(input_details[0]["index"], img_array)
+    dummy = np.zeros((1,224,224,3), dtype=np.float32)
+    interpreter.set_tensor(input_details[0]["index"], dummy)
     interpreter.invoke()
 
     preds = interpreter.get_tensor(output_details[0]["index"])[0]
