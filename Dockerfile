@@ -1,20 +1,23 @@
 FROM python:3.11.9-slim
 
-# Prevents Python from buffering stdout/stderr (useful for logs)
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
+
+# System deps for Pillow + TFLite
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libgl1 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the project
+# Copy project (filtered by .dockerignore)
 COPY . .
 
-# Expose port if your Flask app uses 5000
 EXPOSE 5000
 
-# Start the app with Gunicorn
 CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "app:app"]
