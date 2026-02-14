@@ -2,6 +2,7 @@ import os
 from utils.models.common import preprocess_image
 from utils.models import baseline_predict, enhanced_predict
 
+
 DISEASE_INFO = {
     "Cordana": {
         "full_name": "Cordana Leaf Spot",
@@ -49,3 +50,4 @@ def predict_image(image_path):
         "baseline": enrich(baseline_predict(img_array)),
         "enhanced": enrich(enhanced_predict(img_array)),
     }
+
