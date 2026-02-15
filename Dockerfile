@@ -26,4 +26,4 @@ COPY . .
 EXPOSE 5000
 
 # Use gunicorn as before, run inside uv environment
-CMD ["uv", "run", "gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "app:app"]
+CMD ["uv", "run", "python", "-m", "gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "app:app"]
