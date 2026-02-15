@@ -1,6 +1,6 @@
-import numpy as np
-from PIL import Image
-import tensorflow as tf
+import numpy as np #type: ignore
+from PIL import Image # type: ignore
+import tensorflow as tf #type: ignore
 from tensorflow import keras # type: ignore
 
 def preprocess_image(image_path):

@@ -46,21 +46,22 @@ def predict_image(image_path):
 
     img_array = preprocess_image(image_path)
 
-    # Measure baseline inference time
-    baseline_start = time.time()
+    # Baseline prediction
     baseline_result = baseline_predict(img_array)
-    baseline_time = (time.time() - baseline_start) * 1000  # Convert to milliseconds
+    # ensure lowercase key
+    baseline_result["inference_time_ms"] = baseline_result.get("inference_time_ms") or baseline_result.get("Inference_Time_ms") or 0
+    baseline_result = enrich(baseline_result)
 
-    # Measure enhanced inference time
-    enhanced_start = time.time()
+    # Enhanced prediction
     enhanced_result = enhanced_predict(img_array)
-    enhanced_time = (time.time() - enhanced_start) * 1000  # Convert to milliseconds
+    enhanced_result["inference_time_ms"] = enhanced_result.get("inference_time_ms") or enhanced_result.get("Inference_Time_ms") or 0
+    enhanced_result = enrich(enhanced_result)
 
     return {
         "success": True,
-        # "baseline": enrich(baseline_predict(img_array)),
-        # "enhanced": enrich(enhanced_predict(img_array)),
-        "baseline": {**enrich(baseline_result), "inference_time_ms": round(baseline_time, 2)},
-        "enhanced": {**enrich(enhanced_result), "inference_time_ms": round(enhanced_time, 2)},
+        "baseline": baseline_result,
+        "enhanced": enhanced_result
     }
+
+
 
