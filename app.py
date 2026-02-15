@@ -39,13 +39,13 @@ def predict():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], safe_filename)
         file.save(filepath)
 
-        # Get prediction from real model
+        # Get prediction from model
         result = predict_image(filepath)
 
         if not result['success']:
             return f"Prediction error: {result['error']}", 500
 
-        # Now result has 'baseline' and 'enhanced'
+        # model returns both baseline and enhanced results
         baseline_result = result['baseline']
         enhanced_result = result['enhanced']
 
