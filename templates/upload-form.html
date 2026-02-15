@@ -1,15 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BananaLeaf AI - Upload Photo</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+{% extends "layout.html" %}
+
+{% block title %}BananaLeaf AI - Upload Photo{% endblock %}
+
+{% block body_class %}bg-gray-50{% endblock %}
+
+{% block header_class %}page-gradient-dark{% endblock %}
+
+{% block content %}
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-        }
         .hero-bg {
             background: #0a0a0a;
         }
@@ -21,8 +19,7 @@
             border-color: rgba(34, 197, 94, 0.8);
         }
     </style>
-</head>
-<body class="bg-gray-50">
+
     <!-- Main Content - Upload Form -->
     <main class="hero-bg relative min-h-screen py-20 overflow-hidden" style="background: linear-gradient(180deg, #0b0d0f 0%, #0f1216 60%, #0b0d0f 100%);">
         <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 relative">
@@ -83,7 +80,9 @@
             </div>
         </div>
     </main>
+{% endblock %}
 
-    <script src="../static/js/upload-form.js"></script>
-</body>
+{% block page_scripts %}
+    <script src="{{ url_for('static', filename='js/upload-form.js') }}"></script>
+{% endblock %}
 </html>
