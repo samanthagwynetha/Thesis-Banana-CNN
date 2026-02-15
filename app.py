@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request
-from werkzeug.utils import secure_filename
+from flask import Flask, render_template, request #type: ignore
+from werkzeug.utils import secure_filename #type: ignore
 import os
 
 from config import UPLOAD_FOLDER, ALLOWED_EXTENSIONS
