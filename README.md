@@ -169,4 +169,4 @@ Following the **CRISP-DM Framework**:
 - 5GB disk space
 
 ### Clone Repository
-```bash
+- **https://github.com/eej-sinining/Thesis-Banana-CNN.git 

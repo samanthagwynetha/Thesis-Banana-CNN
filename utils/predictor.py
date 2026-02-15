@@ -1,45 +1,9 @@
 import os
-import json
-import numpy as np
-from PIL import Image
-import tensorflow as tf
+import time
+from utils.models.common import preprocess_image
+from utils.models import baseline_predict, enhanced_predict
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(CURRENT_DIR, 'enhanced_resnet50_deployment_v3.tflite')
-CLASS_MAPPING_PATH = os.path.join(CURRENT_DIR, 'class_indices_v3.json')
 
-# ===============================
-# LOAD TFLITE MODEL
-# ===============================
-try:
-    interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
-    interpreter.allocate_tensors()
-
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
-
-    print(f"TFLite model loaded from {MODEL_PATH}")
-except Exception as e:
-    print(f"Failed to load TFLite model: {e}")
-    interpreter = None
-
-# ===============================
-# LOAD CLASS MAPPING
-# ===============================
-if os.path.exists(CLASS_MAPPING_PATH):
-    with open(CLASS_MAPPING_PATH, 'r') as f:
-        CLASS_MAPPING = json.load(f)
-    print(f"Class mapping loaded from {CLASS_MAPPING_PATH}")
-else:
-    print(f"Class mapping file not found at {CLASS_MAPPING_PATH}")
-    CLASS_MAPPING = {}
-
-# Reverse mapping: index -> class
-INDEX_TO_CLASS = {v: k for k, v in CLASS_MAPPING.items()}
-
-# ===============================
-# DISEASE INFORMATION
-# ===============================
 DISEASE_INFO = {
     "Cordana": {
         "full_name": "Cordana Leaf Spot",
@@ -64,166 +28,39 @@ DISEASE_INFO = {
     }
 }
 
-# ===============================
-# PREDICTION FUNCTION
-# ===============================
+def enrich(result):
+    info = DISEASE_INFO.get(result["disease"], {})
+    return {
+        **result,
+        "success": True,
+        "disease_name": info.get("full_name", result["disease"]),
+        "severity": info.get("severity", "Unknown"),
+        "description": info.get("description", "No description available"),
+        "symptoms": info.get("symptoms", "No symptoms available"),
+        "treatment": info.get("treatment", "No treatment available"),
+    }
+
 def predict_image(image_path):
-    if interpreter is None:
-        return {"success": False, "error": "Model not loaded."}
+    if not os.path.exists(image_path):
+        return {"success": False, "error": "Image not found"}
 
-    # Load and preprocess image
-    img = Image.open(image_path).convert('RGB')
-    img = img.resize((224, 224))
-    img_array = np.array(img, dtype=np.float32) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+    img_array = preprocess_image(image_path)
 
-    # Set input tensor
-    interpreter.set_tensor(input_details[0]['index'], img_array)
+    # Measure baseline inference time
+    baseline_start = time.time()
+    baseline_result = baseline_predict(img_array)
+    baseline_time = (time.time() - baseline_start) * 1000  # Convert to milliseconds
 
-    # Run inference
-    interpreter.invoke()
-
-    # Get output tensor
-    preds = interpreter.get_tensor(output_details[0]['index'])[0]
-
-    predicted_idx = int(np.argmax(preds))
-    predicted_class = INDEX_TO_CLASS[predicted_idx]
-    confidence = float(preds[predicted_idx]) * 100
-
-    disease_data = DISEASE_INFO.get(predicted_class, {})
-
-    # Confidence levels
-    if confidence >= 90:
-        confidence_level = "Very High"
-    elif confidence >= 75:
-        confidence_level = "High"
-    elif confidence >= 60:
-        confidence_level = "Moderate"
-    else:
-        confidence_level = "Low"
+    # Measure enhanced inference time
+    enhanced_start = time.time()
+    enhanced_result = enhanced_predict(img_array)
+    enhanced_time = (time.time() - enhanced_start) * 1000  # Convert to milliseconds
 
     return {
         "success": True,
-        "disease": predicted_class,
-        "disease_name": disease_data.get('full_name', predicted_class),
-        "confidence": round(confidence, 2),
-        "confidence_level": confidence_level,
-        "severity": disease_data.get('severity', "Unknown"),
-        "description": disease_data.get('description', "No description available"),
-        "symptoms": disease_data.get('symptoms', "No symptoms available"),
-        "treatment": disease_data.get('treatment', "No treatment available"),
-        "all_probabilities": {
-            INDEX_TO_CLASS[i]: float(p) * 100 for i, p in enumerate(preds)
-        }
+        # "baseline": enrich(baseline_predict(img_array)),
+        # "enhanced": enrich(enhanced_predict(img_array)),
+        "baseline": {**enrich(baseline_result), "inference_time_ms": round(baseline_time, 2)},
+        "enhanced": {**enrich(enhanced_result), "inference_time_ms": round(enhanced_time, 2)},
     }
 
-
-
-
-
-
-
-
-# import os
-# import json
-# import numpy as np
-# from PIL import Image
-# from tensorflow.keras.models import load_model #type: ignore
-# from keras.preprocessing import image
-
-# CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-# MODEL_PATH = os.path.join(CURRENT_DIR, 'enhanced_resnet50_deployment_v3.keras')
-# CLASS_MAPPING_PATH = os.path.join(CURRENT_DIR, 'class_indices_v3.json')
-
-# # Load model
-# try:
-#     model = load_model(MODEL_PATH, compile=False)
-#     print(f"Model loaded from {MODEL_PATH}")
-# except Exception as e:
-#     print(f"Failed to load model: {e}")
-#     model = None
-
-# # ===============================
-# # LOAD CLASS MAPPING
-# # ===============================
-# if os.path.exists(CLASS_MAPPING_PATH):
-#     with open(CLASS_MAPPING_PATH, 'r') as f:
-#         CLASS_MAPPING = json.load(f)
-#     print(f"Class mapping loaded from {CLASS_MAPPING_PATH}")
-# else:
-#     print(f"Class mapping file not found at {CLASS_MAPPING_PATH}")
-#     CLASS_MAPPING = {}
-
-# # Reverse mapping: index -> class
-# INDEX_TO_CLASS = {v: k for k, v in CLASS_MAPPING.items()}
-
-# # ===============================
-# # DISEASE INFORMATION
-# # ===============================
-# DISEASE_INFO = {
-#     "Cordana": {
-#         "full_name": "Cordana Leaf Spot",
-#         "severity": "Moderate",
-#         "description": "A fungal disease causing oval-shaped spots with gray centers and dark borders.",
-#         "symptoms": "Small, circular to oval brown spots with yellow halos",
-#         "treatment": "Remove infected leaves, apply fungicide, improve air circulation"
-#     },
-#     "Sanas": {
-#         "full_name": "Healthy Leaf",
-#         "severity": "None",
-#         "description": "The leaf appears healthy with uniform green coloration.",
-#         "symptoms": "No visible symptoms",
-#         "treatment": "No treatment needed"
-#     },
-#     "SigatokaNegra": {
-#         "full_name": "Black Sigatoka",
-#         "severity": "Severe",
-#         "description": "A destructive banana disease causing dark streaks and rapid leaf death.",
-#         "symptoms": "Yellow streaks that turn brown or black",
-#         "treatment": "Remove infected leaves and apply fungicides immediately"
-#     }
-# }
-
-# # ===============================
-# # PREDICTION FUNCTION
-# # ===============================
-# def predict_image(image_path):
-#     if model is None:
-#         return {"success": False, "error": "Model not loaded."}
-
-#     # Load and preprocess image
-#     img = Image.open(image_path).convert('RGB')
-#     img = img.resize((224, 224))
-#     img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
-
-#     # Predict
-#     preds = model.predict(img_array, verbose=0)[0]
-
-#     predicted_idx = int(np.argmax(preds))
-#     predicted_class = list(CLASS_MAPPING.keys())[predicted_idx]
-#     confidence = float(preds[predicted_idx]) * 100
-
-#     disease_data = DISEASE_INFO.get(predicted_class, {})
-
-#     # Confidence levels
-#     if confidence >= 90:
-#         confidence_level = "Very High"
-#     elif confidence >= 75:
-#         confidence_level = "High"
-#     elif confidence >= 60:
-#         confidence_level = "Moderate"
-#     else:
-#         confidence_level = "Low"
-
-#     return {
-#         "success": True,
-#         "disease": predicted_class,
-#         "disease_name": disease_data.get('full_name', predicted_class),
-#         "confidence": round(confidence, 2),
-#         "confidence_level": confidence_level,
-#         "severity": disease_data.get('severity', "Unknown"),
-#         "description": disease_data.get('description', "No description available"),
-#         "symptoms": disease_data.get('symptoms', "No symptoms available"),
-#         "treatment": disease_data.get('treatment', "No treatment available"),
-#         "all_probabilities": {list(CLASS_MAPPING.keys())[i]: float(p)*100 for i, p in enumerate(preds)}
-#     }

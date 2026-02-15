@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request
-from werkzeug.utils import secure_filename
+from flask import Flask, render_template, request #type: ignore
+from werkzeug.utils import secure_filename #type: ignore
 import os
 
 from config import UPLOAD_FOLDER, ALLOWED_EXTENSIONS
@@ -41,24 +41,23 @@ def predict():
 
         # Get prediction from real model
         result = predict_image(filepath)
-        
+
         if not result['success']:
             return f"Prediction error: {result['error']}", 500
+
+        # Now result has 'baseline' and 'enhanced'
+        baseline_result = result['baseline']
+        enhanced_result = result['enhanced']
 
         return render_template(
             'result.html',
             image_path=safe_filename,
-            disease=result['disease'],
-            disease_name=result['disease_name'],
-            confidence=result['confidence'],
-            confidence_level=result['confidence_level'],
-            severity=result['severity'],
-            description=result['description'],
-            symptoms=result.get('symptoms', ''),
-            treatment=result.get('treatment', '')
+            baseline=baseline_result,
+            enhanced=enhanced_result
         )
 
     return "Invalid file format", 400
+
 
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
