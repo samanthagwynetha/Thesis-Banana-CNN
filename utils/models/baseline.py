@@ -55,7 +55,6 @@ def predict(img_array):
             INDEX_TO_CLASS.get(i, str(i)): float(p) * 100
             for i, p in enumerate(preds)
         },
-        # Use lowercase, and show 3 decimals
         "inference_time_ms": float(f"{inference_time:.2f}")
     }
 
