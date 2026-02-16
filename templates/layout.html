@@ -52,6 +52,137 @@
             transition: width 0.3s ease;
         }
 
+        /* Apple-Style Scroll Animation Keyframes */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translate3d(0, 40px, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translate3d(-40px, 0, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        @keyframes fadeInRight {
+            from {
+                opacity: 0;
+                transform: translate3d(40px, 0, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes slideInFromBottom {
+            from {
+                opacity: 0;
+                transform: translate3d(0, 40px, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        /* 
+         * Scroll-Triggered Animation System
+         * Animations are DORMANT until .animate-visible is added by Intersection Observer.
+         * This prevents animations from playing off-screen.
+         */
+
+        /* Initial state — all animated elements hidden */
+        [class*="animate-"] {
+            opacity: 0;
+            will-change: transform, opacity;
+        }
+
+        /* Animations only fire when element is scrolled into view */
+        .animate-fade-in-up.animate-visible {
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-fade-in-left.animate-visible {
+            animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-fade-in-right.animate-visible {
+            animation: fadeInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-fade-in.animate-visible {
+            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-bounce {
+            opacity: 1;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        .animate-scale-in.animate-visible {
+            animation: scaleIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-slide-up.animate-visible {
+            animation: slideInFromBottom 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Delay utilities */
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+        .delay-400 { animation-delay: 0.4s; }
+        .delay-500 { animation-delay: 0.5s; }
+        .delay-600 { animation-delay: 0.6s; }
+        .delay-700 { animation-delay: 0.7s; }
+        .delay-800 { animation-delay: 0.8s; }
+
+        /* Clean up after animation for performance */
+        [class*="animate-"].animation-complete {
+            will-change: auto;
+        }
+
     </style>
 </head>
 <body class="{% block body_class %}bg-gray-50{% endblock %}">
@@ -192,6 +323,40 @@
                         });
                     }
                 }
+            });
+        });
+
+        // Apple-style scroll-triggered animations with Intersection Observer
+        const observerOptions = {
+            root: null,
+            rootMargin: '-30% 0px', // Trigger when element is 30% into viewport (70% visible)
+            threshold: 0
+        };
+
+        const observerCallback = (entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Add visible class to trigger animation
+                    entry.target.classList.add('animate-visible');
+                    
+                    // Stop observing after animation triggers (play once)
+                    observer.unobserve(entry.target);
+                    
+                    // Clean up will-change after animation completes
+                    setTimeout(() => {
+                        entry.target.classList.add('animation-complete');
+                    }, 1000); // Wait for animation + delay to complete
+                }
+            });
+        };
+
+        const observer = new IntersectionObserver(observerCallback, observerOptions);
+
+        // Observe all elements with animation classes
+        document.addEventListener('DOMContentLoaded', () => {
+            const animatedElements = document.querySelectorAll('[class*="animate-"]');
+            animatedElements.forEach(el => {
+                observer.observe(el);
             });
         });
     </script>
