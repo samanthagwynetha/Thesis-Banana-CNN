@@ -1,0 +1,13 @@
+
+Update as of 2/23/26:
+- dont use enhanced and baseline in deployment version 3.
+- issues: 
+    - class indices version 3 only use/learn Healthy class 
+- adjustments: 
+    - still uses the baseline and enhanced deployment version 2 but changed the class indices to v1.
+- ToDo:
+    - need adjustments to the training section for enhanced because the baseline can be usable as of now, it just needs
+    to be proven that we somehow improve the time effiency and somehow or atleast closes to the baseline accuracy tho much
+    better if it improves.
+
+    PS: assign someone to search in advance some RRL to support our study incase of our research is a fail.
