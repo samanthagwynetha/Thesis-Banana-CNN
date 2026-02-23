@@ -5,7 +5,7 @@
 
 
 # ============================================================================
-# CELL 2 - REPRODUCIBILITY CONFIGURATION
+# CELL 2 - REPRODUCIBILITY
 # ============================================================================
 import os
 import random
@@ -13,10 +13,9 @@ import numpy as np
 import tensorflow as tf
 
 SEED = 42
-
-os.environ['PYTHONHASHSEED'] = str(SEED)
+os.environ['PYTHONHASHSEED']       = str(SEED)
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
-os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+os.environ['TF_CUDNN_DETERMINISTIC']= '1'
 
 random.seed(SEED)
 np.random.seed(SEED)
@@ -24,48 +23,39 @@ tf.random.set_seed(SEED)
 tf.config.experimental.enable_op_determinism()
 
 print("="*70)
-print("REPRODUCIBILITY ENABLED")
-print("="*70)
-print(f"All random seeds set to: {SEED}")
-print("TensorFlow deterministic operations: ENABLED")
-print("Results will be consistent across multiple runs")
+print("REPRODUCIBILITY ENABLED — seed:", SEED)
 print("="*70)
 
 
 # ============================================================================
-# CELL 3 - IMPORT ALL DEPENDENCIES
+# CELL 3 - IMPORTS
 # ============================================================================
-import shutil
-import time
+import shutil, time, json, glob
+from datetime import datetime
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from tensorflow import keras
-from tensorflow.keras import layers, models, optimizers, mixed_precision
+from tensorflow.keras import layers, models, mixed_precision
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.preprocessing import image as keras_image
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import (
-    EarlyStopping,
-    ReduceLROnPlateau,
-    ModelCheckpoint,
-    LearningRateScheduler
+    ReduceLROnPlateau, ModelCheckpoint, LearningRateScheduler
 )
-
 from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
-    precision_recall_fscore_support
+    classification_report, confusion_matrix, precision_recall_fscore_support
 )
+from sklearn.utils.class_weight import compute_class_weight
 
-print(f"TensorFlow version: {tf.__version__}")
-print(f"GPU available: {tf.config.list_physical_devices('GPU')}")
-print(f"Keras version: {keras.__version__}")
-print("✓ All dependencies imported")
+print(f"TensorFlow: {tf.__version__}")
+print(f"GPU: {tf.config.list_physical_devices('GPU')}")
+print("✓ All imports done")
 
 
 # ============================================================================
@@ -91,18 +81,20 @@ Research Objectives:
   3. Improve computational efficiency for field deployment
   4. Enable real-time disease detection
 
-Approach: Optimize ResNet50 architecture internally
-  - Partial layer freezing
-  - Batch normalization
-  - Global Average Pooling
-  - Mixed precision training (FP16)
+Enhancements Applied:
+  - Partial layer freezing (80 layers)
+  - BatchNormalization + GlobalAveragePooling
+  - AdamW optimizer + Cosine LR scheduler
+  - FP16 mixed precision training
+  - EarlyStopping (patience=30)
+  - Class weights (fixes Cordana bias)
 """)
 
 
 # ============================================================================
 # CELL 5 - 2.2 DATA UNDERSTANDING
 # ============================================================================
-print("\n" + "="*70)
+print("="*70)
 print("2.2 DATA UNDERSTANDING")
 print("="*70)
 
@@ -115,44 +107,35 @@ def count_images(directory):
     for cls in os.listdir(directory):
         cls_path = os.path.join(directory, cls)
         if os.path.isdir(cls_path):
-            counts[cls] = len([f for f in os.listdir(cls_path)
-                               if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
+            counts[cls] = len([
+                f for f in os.listdir(cls_path)
+                if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+            ])
     return counts
 
 original_counts  = count_images(ORIGINAL_DIR)
 augmented_counts = count_images(AUGMENTED_DIR)
 
-print("\n2.2.1 Dataset Description (Table 2)")
-print("-"*70)
-print("ORIGINAL Dataset (Used for Training):")
+print("\nORIGINAL Dataset (used for training):")
 total_original = 0
 for cls, count in sorted(original_counts.items()):
     print(f"  {cls}: {count} images")
     total_original += count
 print(f"  TOTAL: {total_original} images")
 
-print("\nAUGMENTED Dataset (Available but NOT used):")
+print("\nAUGMENTED Dataset (available, NOT used):")
 total_augmented = 0
 for cls, count in sorted(augmented_counts.items()):
     print(f"  {cls}: {count} images")
     total_augmented += count
 print(f"  TOTAL: {total_augmented} images")
-
-print(f"\nGRAND TOTAL AVAILABLE: {total_original + total_augmented} images")
-print("\n" + "="*70)
-print("DATASET STRATEGY")
-print("="*70)
-print("  ✓ Use same 900 ORIGINAL images for fair comparison")
-print("  ✓ Focus on architectural improvements, not data volume")
-print("="*70)
+print(f"\nGRAND TOTAL AVAILABLE: {total_original + total_augmented}")
+print("✓ Using same 900 original images for fair comparison")
 
 
 # ============================================================================
-# CELL 6 - 2.2.2 EXPLORATORY DATA ANALYSIS (Figure 2)
+# CELL 6 - 2.2.2 EXPLORATORY DATA ANALYSIS
 # ============================================================================
-print("\n2.2.2 Exploratory Data Analysis")
-print("-"*70)
-
 def show_sample_images():
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     class_mapping = {
@@ -167,7 +150,7 @@ def show_sample_images():
         if images:
             img = Image.open(os.path.join(cls_path, images[0]))
             axes[idx].imshow(img)
-            axes[idx].set_title(f'{label}', fontsize=12, fontweight='bold')
+            axes[idx].set_title(label, fontsize=12, fontweight='bold')
             axes[idx].axis('off')
     plt.suptitle('Figure 2: Sample of Banana Leaf Dataset',
                  fontsize=14, fontweight='bold')
@@ -176,16 +159,16 @@ def show_sample_images():
 
 show_sample_images()
 
-print("\nVisual Characteristics:")
-print("  Healthy:        Uniform green, smooth texture, no lesions")
-print("  Black Sigatoka: Brown-to-black streaks, necrotic lesions, yellow halos")
-print("  Cordana:        Irregular brown streaks, circular spots, distinct edges")
+print("Visual Characteristics:")
+print("  Healthy:        Uniform green, smooth, no lesions")
+print("  Black Sigatoka: Brown-black streaks, necrotic lesions, yellow halos")
+print("  Cordana:        Irregular brown streaks, circular spots")
 
 
 # ============================================================================
-# CELL 7 - 2.3 DATA PREPARATION
+# CELL 7 - 2.3 DATA PREPARATION (80/10/10 split)
 # ============================================================================
-print("\n" + "="*70)
+print("="*70)
 print("2.3 DATA PREPARATION")
 print("="*70)
 
@@ -196,154 +179,107 @@ TEST_DIR  = os.path.join(OUT_DIR, "test")
 
 if os.path.exists(OUT_DIR):
     shutil.rmtree(OUT_DIR)
-
-os.makedirs(TRAIN_DIR, exist_ok=True)
-os.makedirs(VAL_DIR,   exist_ok=True)
-os.makedirs(TEST_DIR,  exist_ok=True)
+for d in [TRAIN_DIR, VAL_DIR, TEST_DIR]:
+    os.makedirs(d)
 
 classes = [d for d in os.listdir(ORIGINAL_DIR)
            if os.path.isdir(os.path.join(ORIGINAL_DIR, d))]
-print(f"Classes found: {sorted(classes)}")
+print(f"Classes: {sorted(classes)}")
 
 rng = random.Random(SEED)
 total_train = total_val = total_test = 0
 
 for cls in sorted(classes):
-    print(f"\nProcessing: {cls}")
-    all_images = []
-    orig_dir   = os.path.join(ORIGINAL_DIR, cls)
-    if os.path.exists(orig_dir):
-        orig_imgs = [(os.path.join(orig_dir, f), f)
-                     for f in os.listdir(orig_dir)
-                     if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-        all_images.extend(orig_imgs)
-        print(f"  Original images: {len(orig_imgs)}")
+    orig_dir  = os.path.join(ORIGINAL_DIR, cls)
+    all_imgs  = [(os.path.join(orig_dir, f), f)
+                 for f in os.listdir(orig_dir)
+                 if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    rng.shuffle(all_imgs)
 
-    rng.shuffle(all_images)
-    n_total = len(all_images)
-    n_train = int(n_total * 0.8)
-    n_val   = int(n_total * 0.1)
-    n_test  = n_total - n_train - n_val
+    n       = len(all_imgs)
+    n_train = int(n * 0.8)
+    n_val   = int(n * 0.1)
 
-    train_imgs = all_images[:n_train]
-    val_imgs   = all_images[n_train:n_train + n_val]
-    test_imgs  = all_images[n_train + n_val:]
+    splits = {
+        TRAIN_DIR: all_imgs[:n_train],
+        VAL_DIR:   all_imgs[n_train:n_train+n_val],
+        TEST_DIR:  all_imgs[n_train+n_val:]
+    }
+    for base, imgs in splits.items():
+        os.makedirs(os.path.join(base, cls), exist_ok=True)
+        for src, name in imgs:
+            shutil.copy2(src, os.path.join(base, cls, name))
 
-    print(f"  Split: Train={len(train_imgs)}, Val={len(val_imgs)}, Test={len(test_imgs)}")
-
-    for base_dir in [TRAIN_DIR, VAL_DIR, TEST_DIR]:
-        os.makedirs(os.path.join(base_dir, cls), exist_ok=True)
-
-    for src, name in train_imgs:
-        shutil.copy2(src, os.path.join(TRAIN_DIR, cls, name))
-    for src, name in val_imgs:
-        shutil.copy2(src, os.path.join(VAL_DIR,   cls, name))
-    for src, name in test_imgs:
-        shutil.copy2(src, os.path.join(TEST_DIR,  cls, name))
-
-    total_train += len(train_imgs)
-    total_val   += len(val_imgs)
-    total_test  += len(test_imgs)
-
-print("\n" + "="*70)
-print("DATA PREPARATION COMPLETE")
-print("="*70)
-print(f"Training:   {total_train} images")
-print(f"Validation: {total_val} images")
-print(f"Test:       {total_test} images")
+    total_train += len(splits[TRAIN_DIR])
+    total_val   += len(splits[VAL_DIR])
+    total_test  += len(splits[TEST_DIR])
+    print(f"  {cls}: train={len(splits[TRAIN_DIR])}, "
+          f"val={len(splits[VAL_DIR])}, test={len(splits[TEST_DIR])}")
 
 assert total_train == 720 and total_val == 90 and total_test == 90
+print(f"\nTrain={total_train} | Val={total_val} | Test={total_test}")
 print("✓ 80/10/10 split verified")
-print("="*70)
 
 
 # ============================================================================
-# CELL 8 - 2.4 MODELING - DATA GENERATORS
+# CELL 8 - DATA GENERATORS
 # ============================================================================
-print("\n" + "="*70)
-print("2.4 MODELING - DATA GENERATORS")
-print("="*70)
-
-IMG_SIZE            = 224
-BATCH_SIZE_BASELINE = 32
-BATCH_SIZE_ENHANCED = 32
-EPOCHS              = 100
+IMG_SIZE   = 224
+BATCH_SIZE = 32
+EPOCHS     = 100
 
 train_datagen = ImageDataGenerator(
-    rescale=1./255,
-    rotation_range=20,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    horizontal_flip=True,
-    zoom_range=0.2,
-    fill_mode='nearest'
+    rescale=1./255, rotation_range=20,
+    width_shift_range=0.2, height_shift_range=0.2,
+    horizontal_flip=True, zoom_range=0.2, fill_mode='nearest'
 )
 val_datagen  = ImageDataGenerator(rescale=1./255)
 test_datagen = ImageDataGenerator(rescale=1./255)
 
-train_gen_baseline = train_datagen.flow_from_directory(
-    TRAIN_DIR, target_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=BATCH_SIZE_BASELINE, class_mode='categorical',
-    shuffle=True, seed=SEED)
+def make_gen(datagen, directory, shuffle=True):
+    return datagen.flow_from_directory(
+        directory, target_size=(IMG_SIZE, IMG_SIZE),
+        batch_size=BATCH_SIZE, class_mode='categorical',
+        shuffle=shuffle, seed=SEED if shuffle else None
+    )
 
-val_gen_baseline = val_datagen.flow_from_directory(
-    VAL_DIR, target_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=BATCH_SIZE_BASELINE, class_mode='categorical', shuffle=False)
-
-test_gen_baseline = test_datagen.flow_from_directory(
-    TEST_DIR, target_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=BATCH_SIZE_BASELINE, class_mode='categorical', shuffle=False)
-
-train_gen_enhanced = train_datagen.flow_from_directory(
-    TRAIN_DIR, target_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=BATCH_SIZE_ENHANCED, class_mode='categorical',
-    shuffle=True, seed=SEED)
-
-val_gen_enhanced = val_datagen.flow_from_directory(
-    VAL_DIR, target_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=BATCH_SIZE_ENHANCED, class_mode='categorical', shuffle=False)
-
-test_gen_enhanced = test_datagen.flow_from_directory(
-    TEST_DIR, target_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=BATCH_SIZE_ENHANCED, class_mode='categorical', shuffle=False)
+train_gen_baseline = make_gen(train_datagen, TRAIN_DIR)
+val_gen_baseline   = make_gen(val_datagen,   VAL_DIR,  shuffle=False)
+test_gen_baseline  = make_gen(test_datagen,  TEST_DIR, shuffle=False)
+train_gen_enhanced = make_gen(train_datagen, TRAIN_DIR)
+val_gen_enhanced   = make_gen(val_datagen,   VAL_DIR,  shuffle=False)
+test_gen_enhanced  = make_gen(test_datagen,  TEST_DIR, shuffle=False)
 
 NUM_CLASSES = len(train_gen_baseline.class_indices)
 
-print(f"Classes:           {list(train_gen_baseline.class_indices.keys())}")
-print(f"Training samples:  {train_gen_baseline.samples}")
-print(f"Validation samples:{val_gen_baseline.samples}")
-print(f"Test samples:      {test_gen_baseline.samples}")
-
+print(f"Classes:    {list(train_gen_baseline.class_indices.keys())}")
+print(f"Train/Val/Test: {train_gen_baseline.samples}/"
+      f"{val_gen_baseline.samples}/{test_gen_baseline.samples}")
 assert train_gen_baseline.samples == 720
 assert val_gen_baseline.samples   == 90
 assert test_gen_baseline.samples  == 90
-print("✓ Dataset verification passed")
-print("="*70)
+print("✓ Generators ready")
 
 
 # ============================================================================
 # CELL 9 - 2.4.1 BASELINE ARCHITECTURE
 # ============================================================================
-print("\n" + "="*70)
+print("="*70)
 print("2.4.1 BASELINE ARCHITECTURE")
 print("="*70)
 
 tf.keras.backend.set_floatx('float32')
 
-base_model_baseline = ResNet50(
-    weights='imagenet', include_top=False,
-    input_shape=(IMG_SIZE, IMG_SIZE, 3))
+base_b = ResNet50(weights='imagenet', include_top=False,
+                  input_shape=(IMG_SIZE, IMG_SIZE, 3))
+for layer in base_b.layers[:75]:  layer.trainable = False
+for layer in base_b.layers[75:]:  layer.trainable = True
 
-for layer in base_model_baseline.layers[:75]:
-    layer.trainable = False
-for layer in base_model_baseline.layers[75:]:
-    layer.trainable = True
-
-trainable_count_b = sum(1 for l in base_model_baseline.layers if l.trainable)
-frozen_count_b    = sum(1 for l in base_model_baseline.layers if not l.trainable)
+frozen_b    = sum(1 for l in base_b.layers if not l.trainable)
+trainable_b = sum(1 for l in base_b.layers if l.trainable)
 
 baseline_model = models.Sequential([
-    base_model_baseline,
+    base_b,
     layers.GlobalAveragePooling2D(),
     layers.BatchNormalization(),
     layers.Dropout(0.5),
@@ -354,79 +290,55 @@ baseline_model = models.Sequential([
 ], name='Baseline_ResNet50')
 
 baseline_model.compile(
-    optimizer=tf.keras.optimizers.Adam(
-        learning_rate=0.00005,
-        beta_1=0.9,
-        beta_2=0.999
-    ),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.00005,
+                                       beta_1=0.9, beta_2=0.999),
     loss='categorical_crossentropy',
     metrics=['accuracy']
 )
 
-baseline_model.summary()
-
 trainable_params_baseline = sum(
     tf.size(w).numpy() for w in baseline_model.trainable_weights)
-total_params_baseline = sum(
-    tf.size(w).numpy() for w in baseline_model.weights)
 
-print(f"\nFrozen layers:        {frozen_count_b}")
-print(f"Trainable layers:     {trainable_count_b}")
-print(f"Trainable parameters: {trainable_params_baseline:,}")
-print(f"Total parameters:     {total_params_baseline:,}")
+baseline_model.summary()
+print(f"\nFrozen: {frozen_b} | Trainable: {trainable_b}")
+print(f"Trainable params: {trainable_params_baseline:,}")
 print("="*70)
 
 
 # ============================================================================
-# CELL 10 - BASELINE CALLBACKS
+# CELL 10 - PROGRESS CALLBACK (shared by both models)
 # ============================================================================
 class DetailedProgressCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         if (epoch + 1) % 10 == 0:
             print(f"\n{'='*60}")
-            print(f"Epoch {epoch+1}/100:")
-            print(f"  Train Loss: {logs['loss']:.4f} | Train Acc: {logs['accuracy']*100:.2f}%")
-            print(f"  Val Loss:   {logs['val_loss']:.4f} | Val Acc:   {logs['val_accuracy']*100:.2f}%")
+            print(f"Epoch {epoch+1}:")
+            print(f"  Train: loss={logs['loss']:.4f}  acc={logs['accuracy']*100:.2f}%")
+            print(f"  Val:   loss={logs['val_loss']:.4f}  acc={logs['val_accuracy']*100:.2f}%")
             print(f"{'='*60}\n")
 
+print("✓ DetailedProgressCallback ready")
+
+
+# ============================================================================
+# CELL 11 - BASELINE CALLBACKS
+# ============================================================================
 baseline_callbacks = [
-    ModelCheckpoint(
-        'baseline_best.h5',
-        monitor='val_accuracy',
-        save_best_only=True,
-        mode='max',
-        verbose=1
-    ),
-    ReduceLROnPlateau(
-        monitor='val_loss',
-        factor=0.5,
-        patience=8,
-        min_lr=1e-7,
-        verbose=1
-    ),
+    ModelCheckpoint('baseline_best.h5', monitor='val_accuracy',
+                    save_best_only=True, mode='max', verbose=1),
+    ReduceLROnPlateau(monitor='val_loss', factor=0.5,
+                      patience=8, min_lr=1e-7, verbose=1),
     DetailedProgressCallback()
 ]
-
-print("✓ Baseline callbacks configured")
-print("  - ModelCheckpoint (saves best val_accuracy)")
-print("  - ReduceLROnPlateau")
-print("  - DetailedProgressCallback (every 10 epochs)")
+print("✓ Baseline callbacks ready (NO EarlyStopping — runs full 100 epochs)")
 
 
 # ============================================================================
-# CELL 11 - TRAIN BASELINE MODEL
+# CELL 12 - TRAIN BASELINE MODEL
 # ============================================================================
-print("\n" + "="*70)
+print("="*70)
 print("TRAINING BASELINE ResNet50")
 print("="*70)
-
-initial_loss, initial_acc = baseline_model.evaluate(val_gen_baseline, verbose=0)
-print(f"Initial val accuracy (untrained): {initial_acc*100:.2f}%")
-print(f"Initial val loss:                 {initial_loss:.4f}")
-
-print(f"\n{'='*70}")
-print("STARTING TRAINING...")
-print(f"{'='*70}\n")
 
 start_baseline   = time.time()
 history_baseline = baseline_model.fit(
@@ -438,38 +350,31 @@ history_baseline = baseline_model.fit(
 )
 training_time_baseline = time.time() - start_baseline
 
-print(f"\n{'='*70}")
-print("BASELINE TRAINING COMPLETE")
-print(f"{'='*70}")
-print(f"Training Time:      {training_time_baseline/60:.2f} minutes")
-print(f"Best Val Accuracy:  {max(history_baseline.history['val_accuracy'])*100:.2f}%")
-print(f"Final Val Accuracy: {history_baseline.history['val_accuracy'][-1]*100:.2f}%")
-print(f"Epochs Completed:   {len(history_baseline.history['loss'])}")
-print(f"{'='*70}")
+print(f"\nTraining Time:     {training_time_baseline/60:.2f} min")
+print(f"Best Val Accuracy: {max(history_baseline.history['val_accuracy'])*100:.2f}%")
+print(f"Epochs:            {len(history_baseline.history['loss'])}")
 
 
 # ============================================================================
-# CELL 12 - PLOT BASELINE TRAINING CURVES
+# CELL 13 - PLOT BASELINE TRAINING CURVES
 # ============================================================================
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
 
 ax1.plot(history_baseline.history['accuracy'],
-         label='Train', linewidth=2, color='#2E86AB')
+         label='Train', lw=2, color='#2E86AB')
 ax1.plot(history_baseline.history['val_accuracy'],
-         label='Validation', linewidth=2, color='#A23B72')
-ax1.axhline(y=0.8890, color='red', linestyle='--', linewidth=2,
+         label='Validation', lw=2, color='#A23B72')
+ax1.axhline(0.8890, color='red', ls='--', lw=2,
             label='Target (88.90%)', alpha=0.7)
-ax1.axhline(y=0.3333, color='gray', linestyle=':', linewidth=1,
-            label='Random', alpha=0.5)
-ax1.set_title('Baseline - Accuracy Over Time', fontsize=13, fontweight='bold')
+ax1.set_title('Baseline — Accuracy', fontsize=13, fontweight='bold')
 ax1.set_xlabel('Epoch'); ax1.set_ylabel('Accuracy')
 ax1.legend(); ax1.grid(alpha=0.3)
 
 ax2.plot(history_baseline.history['loss'],
-         label='Train', linewidth=2, color='#2E86AB')
+         label='Train', lw=2, color='#2E86AB')
 ax2.plot(history_baseline.history['val_loss'],
-         label='Validation', linewidth=2, color='#A23B72')
-ax2.set_title('Baseline - Loss Over Time', fontsize=13, fontweight='bold')
+         label='Validation', lw=2, color='#A23B72')
+ax2.set_title('Baseline — Loss', fontsize=13, fontweight='bold')
 ax2.set_xlabel('Epoch'); ax2.set_ylabel('Loss')
 ax2.legend(); ax2.grid(alpha=0.3)
 
@@ -480,107 +385,81 @@ print("✓ Saved: baseline_training_history.png")
 
 
 # ============================================================================
-# CELL 13 - ENABLE MIXED PRECISION (Enhanced model only)
+# CELL 14 - ENABLE FP16 MIXED PRECISION (Enhanced only)
 # ============================================================================
-print("\n" + "="*70)
-print("2.4.3.3 ENABLING MIXED PRECISION FOR ENHANCED MODEL")
-print("="*70)
-
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_global_policy(policy)
-
-print(f"✓ Mixed precision policy enabled: {policy.name}")
-print("  Compute dtype: float16 (FP16) - faster computation")
-print("  Variable dtype: float32 (FP32) - stable gradients")
-print("✓ This will ONLY affect the Enhanced model")
-print("="*70)
+print(f"✓ Mixed precision enabled: {policy.name}")
+print("  ~30% faster per epoch vs FP32")
 
 
 # ============================================================================
-# CELL 14 - COMPUTE CLASS WEIGHTS (fixes Cordana bias)
+# CELL 15 - COMPUTE CLASS WEIGHTS (fixes Cordana bias)
 # ============================================================================
-from sklearn.utils.class_weight import compute_class_weight
-
-train_labels        = train_gen_enhanced.classes
 class_weights_array = compute_class_weight(
-    class_weight='balanced',
-    classes=np.unique(train_labels),
-    y=train_labels
+    'balanced',
+    classes=np.unique(train_gen_enhanced.classes),
+    y=train_gen_enhanced.classes
 )
-class_weight_dict = dict(enumerate(class_weights_array))
+class_weight_dict  = dict(enumerate(class_weights_array))
+index_to_class_map = {v: k for k, v in train_gen_enhanced.class_indices.items()}
 
-index_to_class = {v: k for k, v in train_gen_enhanced.class_indices.items()}
-
-print("Class Weights (fixes Cordana over-prediction bias):")
-for idx, weight in class_weight_dict.items():
-    print(f"  {index_to_class[idx]}: {weight:.4f}")
-print("\n✓ Class weights computed — will be passed during training")
+print("Class Weights (fixes Cordana over-prediction):")
+for idx, w in class_weight_dict.items():
+    print(f"  {index_to_class_map[idx]}: {w:.4f}")
+print("✓ Class weights ready")
 
 
 # ============================================================================
-# CELL 15 - 2.4.2 ENHANCED ResNet50 ARCHITECTURE (FIXED)
+# CELL 16 - 2.4.2 ENHANCED ResNet50 ARCHITECTURE
 # ============================================================================
-print("\n" + "="*70)
-print("2.4.2 ENHANCED ResNet50 ARCHITECTURE (FIXED)")
+print("="*70)
+print("2.4.2 ENHANCED ResNet50 ARCHITECTURE")
 print("="*70)
 
 from tensorflow.keras import Model, Input
 
-base_model_enhanced = ResNet50(
-    weights='imagenet', include_top=False,
-    input_shape=(IMG_SIZE, IMG_SIZE, 3))
+base_e = ResNet50(weights='imagenet', include_top=False,
+                  input_shape=(IMG_SIZE, IMG_SIZE, 3))
 
-# FIX: Freeze more layers for stability on small dataset
-for layer in base_model_enhanced.layers[:100]:
-    layer.trainable = False
-for layer in base_model_enhanced.layers[100:]:
-    layer.trainable = True
+# 80 frozen — sweet spot: more freedom than 100, stable vs 75
+for layer in base_e.layers[:80]:  layer.trainable = False
+for layer in base_e.layers[80:]:  layer.trainable = True
 
-trainable_count = sum(1 for l in base_model_enhanced.layers if l.trainable)
-frozen_count    = sum(1 for l in base_model_enhanced.layers if not l.trainable)
+frozen_e    = sum(1 for l in base_e.layers if not l.trainable)
+trainable_e = sum(1 for l in base_e.layers if l.trainable)
 
 inputs  = Input(shape=(IMG_SIZE, IMG_SIZE, 3))
-x       = base_model_enhanced(inputs, training=False)
-x       = layers.BatchNormalization(name='batch_norm_post_conv5')(x)
-x       = layers.GlobalAveragePooling2D(name='global_avg_pool')(x)
+x       = base_e(inputs, training=False)
+x       = layers.BatchNormalization(name='bn_post_conv5')(x)
+x       = layers.GlobalAveragePooling2D(name='gap')(x)
 x       = layers.Dense(512, activation='relu',
-                       kernel_regularizer=l2(0.001),
-                       name='dense_512')(x)
-x       = layers.BatchNormalization(name='batch_norm_dense')(x)
-x       = layers.Dropout(0.5, name='dropout_05')(x)
+                       kernel_regularizer=l2(0.0005), name='dense_512')(x)
+x       = layers.BatchNormalization(name='bn_dense1')(x)
+x       = layers.Dropout(0.4, name='drop_04')(x)
 x       = layers.Dense(256, activation='relu',
-                       kernel_regularizer=l2(0.001),
-                       name='dense_256')(x)
-x       = layers.BatchNormalization(name='batch_norm_dense2')(x)
-x       = layers.Dropout(0.4, name='dropout_04')(x)
+                       kernel_regularizer=l2(0.0005), name='dense_256')(x)
+x       = layers.BatchNormalization(name='bn_dense2')(x)
+x       = layers.Dropout(0.3, name='drop_03')(x)
 outputs = layers.Dense(NUM_CLASSES, activation='softmax',
                        dtype='float32', name='output')(x)
 
-enhanced_model = Model(inputs=inputs, outputs=outputs,
-                       name='Enhanced_ResNet50')
-
-print("\nEnhanced Configuration (FIXED):")
-print(f"  Frozen layers:    {frozen_count} (increased for stability)")
-print(f"  Trainable layers: {trainable_count}")
-print(f"  Head:             512→256→3")
-print(f"  Dropout:          0.5, 0.4 (stronger regularization)")
-print(f"  L2:               0.001")
-print(f"  Class Weights:    ENABLED (fixes Cordana bias)")
-
-enhanced_model.summary()
+enhanced_model = Model(inputs=inputs, outputs=outputs, name='Enhanced_ResNet50')
 
 trainable_params_enhanced = sum(
     tf.size(w).numpy() for w in enhanced_model.trainable_weights)
 total_params_enhanced = sum(
     tf.size(w).numpy() for w in enhanced_model.weights)
 
-print(f"\nTrainable parameters: {trainable_params_enhanced:,}")
-print(f"Total parameters:     {total_params_enhanced:,}")
+enhanced_model.summary()
+print(f"\nFrozen: {frozen_e} | Trainable: {trainable_e}")
+print(f"Trainable params: {trainable_params_enhanced:,}")
+print(f"Total params:     {total_params_enhanced:,}")
 print("="*70)
 
 
 # ============================================================================
-# CELL 16 - COMPILE ENHANCED MODEL (AdamW — UNCHANGED)
+# CELL 17 - COMPILE ENHANCED MODEL (AdamW)
 # ============================================================================
 enhanced_model.compile(
     optimizer=tf.keras.optimizers.AdamW(
@@ -590,15 +469,11 @@ enhanced_model.compile(
     loss='categorical_crossentropy',
     metrics=['accuracy']
 )
-
-print("✓ Enhanced model compiled")
-print("  Optimizer:     AdamW (UNCHANGED)")
-print("  Learning Rate: 0.0001 (UNCHANGED)")
-print("  Weight Decay:  1e-4 (UNCHANGED)")
+print("✓ Enhanced compiled — AdamW | LR=0.0001 | WD=1e-4")
 
 
 # ============================================================================
-# CELL 17 - COSINE LR SCHEDULER (UNCHANGED)
+# CELL 18 - COSINE LR SCHEDULER
 # ============================================================================
 def cosine_decay_with_warmup(epoch, lr):
     initial_lr   = 0.0001
@@ -607,137 +482,110 @@ def cosine_decay_with_warmup(epoch, lr):
     return (initial_lr - min_lr) * cosine_decay + min_lr
 
 cosine_scheduler = LearningRateScheduler(cosine_decay_with_warmup, verbose=0)
-
-print("✓ Cosine annealing scheduler ready (UNCHANGED)")
-print("  Initial LR: 0.0001")
-print("  Min LR:     1e-7")
-print("  Schedule:   smooth cosine decay over 100 epochs")
+print("✓ Cosine annealing scheduler ready (0.0001 → 1e-7 over 100 epochs)")
 
 
 # ============================================================================
-# CELL 18 - ENHANCED CALLBACKS (UNCHANGED)
+# CELL 19 - ENHANCED CALLBACKS
+# EarlyStopping(patience=30) = stops when converged → saves training time
+# restore_best_weights=True  = always keeps the best checkpoint
 # ============================================================================
 enhanced_callbacks = [
     cosine_scheduler,
-    ModelCheckpoint(
-        'enhanced_best.h5',
+    ModelCheckpoint('enhanced_best.h5', monitor='val_accuracy',
+                    save_best_only=True, mode='max', verbose=1),
+    tf.keras.callbacks.EarlyStopping(
         monitor='val_accuracy',
-        save_best_only=True,
+        patience=30,
+        restore_best_weights=True,
         mode='max',
         verbose=1
     ),
-    ReduceLROnPlateau(
-        monitor='val_loss',
-        factor=0.5,
-        patience=8,
-        min_lr=1e-7,
-        verbose=1
-    ),
+    ReduceLROnPlateau(monitor='val_loss', factor=0.5,
+                      patience=8, min_lr=1e-7, verbose=1),
     DetailedProgressCallback()
 ]
-
-print("✓ Enhanced callbacks configured (UNCHANGED):")
-print("  - Cosine LR Scheduler")
-print("  - ModelCheckpoint (saves best val_accuracy)")
-print("  - ReduceLROnPlateau")
-print("  - DetailedProgressCallback (every 10 epochs)")
-print("  - NO Early Stopping (full 100 epochs)")
+print("✓ Enhanced callbacks ready")
+print("  EarlyStopping(patience=30) → stops at ~60-80 epochs instead of 100")
+print("  restore_best_weights=True  → always reverts to best checkpoint")
 
 
 # ============================================================================
-# CELL 19 - TRAIN ENHANCED MODEL (with class_weight — KEY FIX)
+# CELL 20 - TRAIN ENHANCED MODEL
 # ============================================================================
-print("\n" + "="*70)
-print("TRAINING ENHANCED ResNet50 (WITH FP16 MIXED PRECISION)")
 print("="*70)
-print("Goal: Match/exceed baseline while reducing training time")
-print("Enhancements: BatchNorm, GAP, AdamW, Cosine LR, FP16, Class Weights")
+print("TRAINING ENHANCED ResNet50")
 print("="*70)
-
-print("\nPre-training check:")
-print(f"  Training samples:   {train_gen_enhanced.samples}")
-print(f"  Validation samples: {val_gen_enhanced.samples}")
-print(f"  Steps per epoch:    {len(train_gen_enhanced)}")
-print(f"  Class weights:      {class_weight_dict}")
-
-initial_loss, initial_acc = enhanced_model.evaluate(val_gen_enhanced, verbose=0)
-print(f"\nInitial validation (untrained):")
-print(f"  Accuracy: {initial_acc*100:.2f}%")
-print(f"  Loss:     {initial_loss:.4f}")
-
-print(f"\n{'='*70}")
-print("STARTING TRAINING...")
-print(f"{'='*70}\n")
+print("Speed vs baseline: FP16 (~30% faster/epoch) + EarlyStopping (~60-80 epochs)")
+print("Accuracy vs baseline: 80 frozen + class weights + AdamW + Cosine LR")
+print("="*70)
 
 start_enhanced = time.time()
-
 history_enhanced = enhanced_model.fit(
     train_gen_enhanced,
     validation_data=val_gen_enhanced,
     epochs=EPOCHS,
     callbacks=enhanced_callbacks,
-    class_weight=class_weight_dict,    # ← KEY FIX: balances Cordana bias
+    class_weight=class_weight_dict,
     verbose=2
 )
-
 training_time_enhanced = time.time() - start_enhanced
+
+epochs_ran   = len(history_enhanced.history['loss'])
+best_val_acc = max(history_enhanced.history['val_accuracy'])
+time_red     = ((training_time_baseline - training_time_enhanced)
+                / training_time_baseline) * 100
+acc_change   = (best_val_acc -
+                max(history_baseline.history['val_accuracy'])) * 100
 
 print(f"\n{'='*70}")
 print("ENHANCED TRAINING COMPLETE")
 print(f"{'='*70}")
-print(f"Training Time:      {training_time_enhanced/60:.2f} minutes")
-print(f"Best Val Accuracy:  {max(history_enhanced.history['val_accuracy'])*100:.2f}%")
-print(f"Final Val Accuracy: {history_enhanced.history['val_accuracy'][-1]*100:.2f}%")
-print(f"Epochs Completed:   {len(history_enhanced.history['loss'])}")
+print(f"Time:        {training_time_enhanced/60:.2f} min  "
+      f"(baseline: {training_time_baseline/60:.1f} min, saved {time_red:.1f}%)")
+print(f"Epochs:      {epochs_ran}/{EPOCHS}")
+print(f"Best Val:    {best_val_acc*100:.2f}%  "
+      f"(baseline: {max(history_baseline.history['val_accuracy'])*100:.2f}%)")
+print(f"Acc change:  {acc_change:+.2f} pp")
 
-time_reduction  = ((training_time_baseline - training_time_enhanced)
-                   / training_time_baseline) * 100
-acc_improvement = (max(history_enhanced.history['val_accuracy']) -
-                   max(history_baseline.history['val_accuracy'])) * 100
-
-print(f"\n{'='*70}")
-print("IMMEDIATE COMPARISON")
-print(f"{'='*70}")
-print(f"Time Reduction:   {time_reduction:.1f}%")
-print(f"  Baseline: {training_time_baseline/60:.1f} min")
-print(f"  Enhanced: {training_time_enhanced/60:.1f} min")
-print(f"\nAccuracy Change:  {acc_improvement:+.2f} percentage points")
-print(f"  Baseline: {max(history_baseline.history['val_accuracy'])*100:.2f}%")
-print(f"  Enhanced: {max(history_enhanced.history['val_accuracy'])*100:.2f}%")
-
-if max(history_enhanced.history['val_accuracy']) >= 0.8890:
-    print(f"\n✓ SUCCESS: Enhanced model achieved target (≥88.90%)")
-elif max(history_enhanced.history['val_accuracy']) > max(history_baseline.history['val_accuracy']):
-    print(f"\n✓ IMPROVEMENT: Enhanced outperformed baseline")
+if best_val_acc >= 0.8890:
+    print("✓ SUCCESS: ≥88.90% target achieved!")
+elif best_val_acc > max(history_baseline.history['val_accuracy']):
+    print("✓ IMPROVEMENT: Enhanced outperformed baseline")
 else:
-    print(f"\n⚠ Enhanced did not outperform baseline")
-print(f"{'='*70}")
+    print("⚠ Below baseline — check confusion matrix after evaluation")
+
+if time_red > 0:
+    print(f"✓ Training time reduced by {time_red:.1f}%")
+print("="*70)
 
 
 # ============================================================================
-# CELL 20 - PLOT ENHANCED TRAINING CURVES
+# CELL 21 - PLOT ENHANCED TRAINING CURVES
 # ============================================================================
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
 
 ax1.plot(history_enhanced.history['accuracy'],
-         label='Train', linewidth=2, color='#2E86AB')
+         label='Train', lw=2, color='#2E86AB')
 ax1.plot(history_enhanced.history['val_accuracy'],
-         label='Validation', linewidth=2, color='#A23B72')
-ax1.axhline(y=0.8890, color='red', linestyle='--', linewidth=2,
+         label='Validation', lw=2, color='#A23B72')
+ax1.axhline(0.8890, color='red', ls='--', lw=2,
             label='Target (88.90%)', alpha=0.7)
-ax1.axhline(y=max(history_baseline.history['val_accuracy']),
-            color='orange', linestyle=':', linewidth=2,
-            label=f"Baseline Best ({max(history_baseline.history['val_accuracy'])*100:.1f}%)",
+ax1.axhline(max(history_baseline.history['val_accuracy']),
+            color='orange', ls=':', lw=2,
+            label=f"Baseline ({max(history_baseline.history['val_accuracy'])*100:.1f}%)",
             alpha=0.7)
-ax1.set_title('Enhanced - Accuracy Over Time', fontsize=13, fontweight='bold')
+ax1.set_title(f'Enhanced — Accuracy (stopped epoch {epochs_ran})',
+              fontsize=13, fontweight='bold')
 ax1.set_xlabel('Epoch'); ax1.set_ylabel('Accuracy')
 ax1.legend(); ax1.grid(alpha=0.3)
 
 ax2.plot(history_enhanced.history['loss'],
-         label='Train', linewidth=2, color='#2E86AB')
+         label='Train', lw=2, color='#2E86AB')
 ax2.plot(history_enhanced.history['val_loss'],
-         label='Validation', linewidth=2, color='#A23B72')
-ax2.set_title('Enhanced - Loss Over Time', fontsize=13, fontweight='bold')
+         label='Validation', lw=2, color='#A23B72')
+ax2.set_title(f'Enhanced — Loss (stopped epoch {epochs_ran})',
+              fontsize=13, fontweight='bold')
 ax2.set_xlabel('Epoch'); ax2.set_ylabel('Loss')
 ax2.legend(); ax2.grid(alpha=0.3)
 
@@ -748,206 +596,169 @@ print("✓ Saved: enhanced_training_history.png")
 
 
 # ============================================================================
-# CELL 21 - 2.5 EVALUATION - LOAD BEST MODELS
+# CELL 22 - LOAD BEST MODELS FOR EVALUATION
 # ============================================================================
-print("\n" + "="*70)
-print("2.5 EVALUATION")
 print("="*70)
-print("\nNote: Using independent test set (80/10/10 split)")
-print("  - Training: 720 images (80%)")
-print("  - Validation: 90 images (10%) - monitoring during training")
-print("  - Test: 90 images (10%) - final unbiased evaluation")
+print("2.5 EVALUATION — loading best checkpoints")
 print("="*70)
 
 baseline_model = tf.keras.models.load_model('baseline_best.h5')
 enhanced_model = tf.keras.models.load_model('enhanced_best.h5')
 
 test_gen_eval = test_datagen.flow_from_directory(
-    TEST_DIR,
-    target_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=32,
-    class_mode='categorical',
-    shuffle=False
+    TEST_DIR, target_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=32, class_mode='categorical', shuffle=False
 )
-
-print(f"\nTest set: {test_gen_eval.samples} images")
+print(f"Test set: {test_gen_eval.samples} images")
 print(f"Classes:  {list(test_gen_eval.class_indices.keys())}")
 
 
 # ============================================================================
-# CELL 22 - EVALUATION FUNCTION
+# CELL 23 - EVALUATION FUNCTION
 # ============================================================================
-def evaluate_model_comprehensive(model, name, history, training_time,
-                                 is_enhanced=False):
+CLASS_DISPLAY = {
+    'Cordana':       'Cordana',
+    'Sanas':         'Healthy',
+    'SigatokaNegra': 'Black Sigatoka'
+}
+
+def evaluate_model(model, name, history, training_time, tag):
     print(f"\n{'='*70}")
-    print(f"{name} - COMPREHENSIVE EVALUATION (Section 2.5)")
+    print(f"{name} — EVALUATION")
     print(f"{'='*70}")
 
     test_gen_eval.reset()
-    y_pred_probs = model.predict(test_gen_eval, verbose=0)
-    y_pred = np.argmax(y_pred_probs, axis=1)
-    y_true = test_gen_eval.classes
+    y_probs = model.predict(test_gen_eval, verbose=0)
+    y_pred  = np.argmax(y_probs, axis=1)
+    y_true  = test_gen_eval.classes
 
-    # 2.5.1.1 Accuracy
-    test_loss, test_acc = model.evaluate(test_gen_eval, verbose=0)
-    print(f"\n2.5.1.1 Accuracy")
-    print(f"  Test Accuracy: {test_acc*100:.2f}%")
-    print(f"  Test Loss:     {test_loss:.4f}")
+    t_loss, t_acc = model.evaluate(test_gen_eval, verbose=0)
+    print(f"\nTest Accuracy: {t_acc*100:.2f}%")
+    print(f"Test Loss:     {t_loss:.4f}")
 
-    val_gen_temp = val_datagen.flow_from_directory(
+    val_tmp = val_datagen.flow_from_directory(
         VAL_DIR, target_size=(IMG_SIZE, IMG_SIZE),
         batch_size=32, class_mode='categorical', shuffle=False)
-    val_loss, val_acc = model.evaluate(val_gen_temp, verbose=0)
-    print(f"  Val Accuracy:  {val_acc*100:.2f}%")
+    v_loss, v_acc = model.evaluate(val_tmp, verbose=0)
+    print(f"Val Accuracy:  {v_acc*100:.2f}%")
 
-    # 2.5.1.2-5 Precision, Recall, F1
-    precision, recall, f1, _ = precision_recall_fscore_support(
+    p, r, f1, _ = precision_recall_fscore_support(
         y_true, y_pred, average='weighted', zero_division=0)
-    print(f"\n2.5.1.2 Precision (Weighted): {precision:.4f}")
-    print(f"2.5.1.3 Recall (Weighted):    {recall:.4f}")
-    print(f"2.5.1.5 F1-Score (Weighted):  {f1:.4f}")
+    print(f"\nPrecision (W): {p:.4f}")
+    print(f"Recall    (W): {r:.4f}")
+    print(f"F1-Score  (W): {f1:.4f}")
 
-    # 2.5.1.4 Specificity
-    cm = confusion_matrix(y_true, y_pred)
-    class_names = list(test_gen_eval.class_indices.keys())
-    class_display_names = {
-        'Cordana':       'Cordana',
-        'Sanas':         'Healthy',
-        'SigatokaNegra': 'Black Sigatoka'
-    }
-    display_names = [class_display_names.get(c, c) for c in class_names]
+    cm           = confusion_matrix(y_true, y_pred)
+    class_names  = list(test_gen_eval.class_indices.keys())
+    display_names= [CLASS_DISPLAY.get(c, c) for c in class_names]
 
-    print(f"\n2.5.1.4 Specificity (per class):")
+    print("\nSpecificity per class:")
     for i, cls in enumerate(class_names):
-        tn = cm.sum() - (cm[i,:].sum() + cm[:,i].sum() - cm[i,i])
-        fp = cm[:,i].sum() - cm[i,i]
+        tn   = cm.sum() - (cm[i,:].sum() + cm[:,i].sum() - cm[i,i])
+        fp   = cm[:,i].sum() - cm[i,i]
         spec = tn / (tn + fp) if (tn + fp) > 0 else 0
-        print(f"  {class_display_names.get(cls, cls):<20} {spec:.4f}")
+        print(f"  {CLASS_DISPLAY.get(cls,cls):<20} {spec:.4f}")
 
-    print(f"\nPer-Class Report:")
+    print("\nPer-Class Report:")
     print(classification_report(y_true, y_pred,
                                 target_names=display_names, digits=4))
 
-    # 2.5.2 Computational Metrics
-    print(f"\n2.5.2.1 Training Time")
-    print(f"  Total:     {training_time/60:.2f} minutes")
-    print(f"  Per Epoch: {training_time/len(history.history['loss']):.2f} seconds")
+    print(f"Training Time:  {training_time/60:.2f} min")
+    print(f"Per Epoch:      {training_time/len(history.history['loss']):.2f} sec")
 
-    print(f"\n2.5.2.2 Inference Speed")
     test_gen_eval.reset()
-    start_inf = time.time()
+    t0        = time.time()
     _ = model.predict(test_gen_eval, verbose=0)
-    inf_time  = time.time() - start_inf
+    inf_time  = time.time() - t0
     inf_speed = len(test_gen_eval.filenames) / inf_time
-    print(f"  Speed:            {inf_speed:.2f} images/sec")
-    print(f"  Avg per image:    {(inf_time/len(test_gen_eval.filenames))*1000:.2f} ms")
+    print(f"Inference:      {inf_speed:.2f} img/s")
 
-    # Confusion Matrix
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+    # Confusion matrix
+    plt.figure(figsize=(9, 7))
+    sns.heatmap(cm, annot=True, fmt='d',
+                cmap='Blues' if tag=='baseline' else 'Greens',
                 xticklabels=display_names, yticklabels=display_names)
-    plt.title(f'{name} - Confusion Matrix\n(Test Set: 90 images)',
-              fontsize=14, fontweight='bold')
-    plt.ylabel('True Label', fontsize=12)
-    plt.xlabel('Predicted Label', fontsize=12)
+    plt.title(f'{name}\nAccuracy: {t_acc*100:.2f}%',
+              fontsize=13, fontweight='bold')
+    plt.ylabel('True Label'); plt.xlabel('Predicted Label')
     plt.tight_layout()
-    fname = f'confusion_matrix_{"enhanced" if is_enhanced else "baseline"}.png'
+    fname = f'confusion_matrix_{tag}.png'
     plt.savefig(fname, dpi=300, bbox_inches='tight')
     plt.show()
-    print(f"\n✓ Saved: {fname}")
+    print(f"✓ Saved: {fname}")
 
     # Per-class bar chart
     p_cls, r_cls, f_cls, _ = precision_recall_fscore_support(
         y_true, y_pred, average=None, zero_division=0)
-
     fig, ax = plt.subplots(figsize=(12, 6))
-    x = np.arange(len(display_names)); w = 0.25
-    ax.bar(x - w, p_cls, w, label='Precision', color='#2E86AB')
-    ax.bar(x,     r_cls, w, label='Recall',    color='#A23B72')
-    ax.bar(x + w, f_cls, w, label='F1-Score',  color='#F18F01')
-    ax.set_xticks(x); ax.set_xticklabels(display_names, fontsize=11)
-    ax.set_ylim(0, 1.1); ax.legend(fontsize=11)
-    ax.set_title(f'{name} - Per-Class Performance Metrics',
-                 fontsize=14, fontweight='bold')
-    ax.grid(axis='y', alpha=0.3, linestyle='--')
+    xc = np.arange(len(display_names)); w = 0.25
+    ax.bar(xc-w, p_cls, w, label='Precision', color='#2E86AB')
+    ax.bar(xc,   r_cls, w, label='Recall',    color='#A23B72')
+    ax.bar(xc+w, f_cls, w, label='F1-Score',  color='#F18F01')
+    ax.set_xticks(xc); ax.set_xticklabels(display_names)
+    ax.set_ylim(0, 1.1); ax.legend()
+    ax.set_title(f'{name} — Per-Class Metrics', fontsize=13, fontweight='bold')
+    ax.grid(axis='y', alpha=0.3)
     plt.tight_layout()
-    fname2 = f'per_class_metrics_{"enhanced" if is_enhanced else "baseline"}.png'
+    fname2 = f'per_class_metrics_{tag}.png'
     plt.savefig(fname2, dpi=300, bbox_inches='tight')
     plt.show()
     print(f"✓ Saved: {fname2}")
 
     return {
-        'test_accuracy':        test_acc,
-        'test_loss':            test_loss,
-        'val_accuracy':         val_acc,
-        'val_loss':             val_loss,
-        'precision':            precision,
-        'recall':               recall,
-        'f1_score':             f1,
-        'precision_per_class':  p_cls,
-        'recall_per_class':     r_cls,
-        'f1_per_class':         f_cls,
-        'inference_speed':      inf_speed,
-        'inference_time':       inf_time,
-        'training_time':        training_time,
-        'confusion_matrix':     cm
+        'test_accuracy': t_acc, 'test_loss': t_loss,
+        'val_accuracy':  v_acc, 'val_loss':  v_loss,
+        'precision': p, 'recall': r, 'f1_score': f1,
+        'precision_per_class': p_cls, 'recall_per_class': r_cls,
+        'f1_per_class': f_cls,
+        'inference_speed': inf_speed, 'inference_time': inf_time,
+        'training_time': training_time, 'confusion_matrix': cm
     }
 
+print("✓ evaluate_model() ready")
+
 
 # ============================================================================
-# CELL 23 - RUN EVALUATION ON BOTH MODELS
+# CELL 24 - RUN EVALUATION ON BOTH MODELS
 # ============================================================================
-print("\n" + "="*70)
-print("EVALUATING BASELINE MODEL")
-print("="*70)
-results_baseline = evaluate_model_comprehensive(
+results_baseline = evaluate_model(
     baseline_model, "BASELINE ResNet50",
-    history_baseline, training_time_baseline,
-    is_enhanced=False
+    history_baseline, training_time_baseline, 'baseline'
 )
-
-print("\n" + "="*70)
-print("EVALUATING ENHANCED MODEL")
-print("="*70)
-results_enhanced = evaluate_model_comprehensive(
+results_enhanced = evaluate_model(
     enhanced_model, "ENHANCED ResNet50",
-    history_enhanced, training_time_enhanced,
-    is_enhanced=True
+    history_enhanced, training_time_enhanced, 'enhanced'
 )
 
 
 # ============================================================================
-# CELL 24 - TRAINING HISTORY COMPARISON (SIDE BY SIDE)
+# CELL 25 - SIDE-BY-SIDE TRAINING HISTORY
 # ============================================================================
 fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
-axes[0,0].plot(history_baseline.history['accuracy'],     label='Training',   linewidth=2.5, color='#2E86AB')
-axes[0,0].plot(history_baseline.history['val_accuracy'], label='Validation', linewidth=2.5, color='#A23B72')
-axes[0,0].axhline(y=0.8890, color='red', linestyle=':', linewidth=2,
-                  label='Target (88.90%)', alpha=0.7)
-axes[0,0].set_title('Baseline ResNet50 - Accuracy', fontsize=13, fontweight='bold')
-axes[0,0].set_xlabel('Epoch'); axes[0,0].set_ylabel('Accuracy')
-axes[0,0].legend(fontsize=10); axes[0,0].grid(alpha=0.3, linestyle='--')
+for row, (hist, title) in enumerate([
+    (history_baseline, "Baseline ResNet50"),
+    (history_enhanced, "Enhanced ResNet50"),
+]):
+    axes[row,0].plot(hist.history['accuracy'],
+                     label='Train', lw=2.5, color='#2E86AB')
+    axes[row,0].plot(hist.history['val_accuracy'],
+                     label='Validation', lw=2.5, color='#A23B72')
+    axes[row,0].axhline(0.8890, color='red', ls=':', lw=2,
+                        label='Target 88.90%', alpha=0.7)
+    axes[row,0].set_title(f'{title} — Accuracy',
+                          fontsize=13, fontweight='bold')
+    axes[row,0].set_xlabel('Epoch'); axes[row,0].set_ylabel('Accuracy')
+    axes[row,0].legend(); axes[row,0].grid(alpha=0.3)
 
-axes[0,1].plot(history_baseline.history['loss'],     label='Training',   linewidth=2.5, color='#2E86AB')
-axes[0,1].plot(history_baseline.history['val_loss'], label='Validation', linewidth=2.5, color='#A23B72')
-axes[0,1].set_title('Baseline ResNet50 - Loss', fontsize=13, fontweight='bold')
-axes[0,1].set_xlabel('Epoch'); axes[0,1].set_ylabel('Loss')
-axes[0,1].legend(fontsize=10); axes[0,1].grid(alpha=0.3, linestyle='--')
-
-axes[1,0].plot(history_enhanced.history['accuracy'],     label='Training',   linewidth=2.5, color='#2E86AB')
-axes[1,0].plot(history_enhanced.history['val_accuracy'], label='Validation', linewidth=2.5, color='#A23B72')
-axes[1,0].axhline(y=0.8890, color='red', linestyle=':', linewidth=2,
-                  label='Target (88.90%)', alpha=0.7)
-axes[1,0].set_title('Enhanced ResNet50 - Accuracy', fontsize=13, fontweight='bold')
-axes[1,0].set_xlabel('Epoch'); axes[1,0].set_ylabel('Accuracy')
-axes[1,0].legend(fontsize=10); axes[1,0].grid(alpha=0.3, linestyle='--')
-
-axes[1,1].plot(history_enhanced.history['loss'],     label='Training',   linewidth=2.5, color='#2E86AB')
-axes[1,1].plot(history_enhanced.history['val_loss'], label='Validation', linewidth=2.5, color='#A23B72')
-axes[1,1].set_title('Enhanced ResNet50 - Loss', fontsize=13, fontweight='bold')
-axes[1,1].set_xlabel('Epoch'); axes[1,1].set_ylabel('Loss')
-axes[1,1].legend(fontsize=10); axes[1,1].grid(alpha=0.3, linestyle='--')
+    axes[row,1].plot(hist.history['loss'],
+                     label='Train', lw=2.5, color='#2E86AB')
+    axes[row,1].plot(hist.history['val_loss'],
+                     label='Validation', lw=2.5, color='#A23B72')
+    axes[row,1].set_title(f'{title} — Loss',
+                          fontsize=13, fontweight='bold')
+    axes[row,1].set_xlabel('Epoch'); axes[row,1].set_ylabel('Loss')
+    axes[row,1].legend(); axes[row,1].grid(alpha=0.3)
 
 plt.tight_layout()
 plt.savefig('training_history_comparison.png', dpi=300, bbox_inches='tight')
@@ -956,33 +767,22 @@ print("✓ Saved: training_history_comparison.png")
 
 
 # ============================================================================
-# CELL 25 - SIDE-BY-SIDE CONFUSION MATRIX COMPARISON
+# CELL 26 - SIDE-BY-SIDE CONFUSION MATRIX
 # ============================================================================
 fig, axes = plt.subplots(1, 2, figsize=(18, 7))
+class_names   = list(test_gen_eval.class_indices.keys())
+display_names = [CLASS_DISPLAY.get(c, c) for c in class_names]
 
-class_names = list(test_gen_eval.class_indices.keys())
-class_display_names = {
-    'Cordana':       'Cordana',
-    'Sanas':         'Healthy',
-    'SigatokaNegra': 'Black Sigatoka'
-}
-display_names = [class_display_names.get(c, c) for c in class_names]
-
-sns.heatmap(results_baseline['confusion_matrix'], annot=True, fmt='d',
-            cmap='Blues', ax=axes[0],
-            xticklabels=display_names, yticklabels=display_names)
-axes[0].set_title(f'Baseline ResNet50\nAccuracy: {results_baseline["test_accuracy"]*100:.2f}%',
-                  fontsize=13, fontweight='bold')
-axes[0].set_ylabel('True Label', fontsize=11)
-axes[0].set_xlabel('Predicted Label', fontsize=11)
-
-sns.heatmap(results_enhanced['confusion_matrix'], annot=True, fmt='d',
-            cmap='Greens', ax=axes[1],
-            xticklabels=display_names, yticklabels=display_names)
-axes[1].set_title(f'Enhanced ResNet50\nAccuracy: {results_enhanced["test_accuracy"]*100:.2f}%',
-                  fontsize=13, fontweight='bold')
-axes[1].set_ylabel('True Label', fontsize=11)
-axes[1].set_xlabel('Predicted Label', fontsize=11)
+for ax, res, title, cmap in [
+    (axes[0], results_baseline,
+     f"Baseline  ({results_baseline['test_accuracy']*100:.2f}%)", 'Blues'),
+    (axes[1], results_enhanced,
+     f"Enhanced  ({results_enhanced['test_accuracy']*100:.2f}%)", 'Greens'),
+]:
+    sns.heatmap(res['confusion_matrix'], annot=True, fmt='d', cmap=cmap,
+                ax=ax, xticklabels=display_names, yticklabels=display_names)
+    ax.set_title(title, fontsize=13, fontweight='bold')
+    ax.set_ylabel('True Label'); ax.set_xlabel('Predicted Label')
 
 plt.tight_layout()
 plt.savefig('confusion_matrix_comparison.png', dpi=300, bbox_inches='tight')
@@ -991,38 +791,28 @@ print("✓ Saved: confusion_matrix_comparison.png")
 
 
 # ============================================================================
-# CELL 26 - PERFORMANCE METRICS COMPARISON CHART
+# CELL 27 - METRICS BAR CHART
 # ============================================================================
 metrics = ['Accuracy', 'Precision', 'Recall', 'F1-Score']
-baseline_values = [results_baseline['test_accuracy'], results_baseline['precision'],
-                   results_baseline['recall'],         results_baseline['f1_score']]
-enhanced_values = [results_enhanced['test_accuracy'], results_enhanced['precision'],
-                   results_enhanced['recall'],         results_enhanced['f1_score']]
+b_vals  = [results_baseline['test_accuracy'], results_baseline['precision'],
+           results_baseline['recall'],         results_baseline['f1_score']]
+e_vals  = [results_enhanced['test_accuracy'], results_enhanced['precision'],
+           results_enhanced['recall'],         results_enhanced['f1_score']]
 
-x = np.arange(len(metrics)); width = 0.35
-
+x = np.arange(len(metrics)); w = 0.35
 fig, ax = plt.subplots(figsize=(12, 7))
-bars1 = ax.bar(x - width/2, baseline_values, width,
-               label='Baseline ResNet50', color='#2E86AB', alpha=0.8)
-bars2 = ax.bar(x + width/2, enhanced_values, width,
-               label='Enhanced ResNet50', color='#A23B72', alpha=0.8)
-
-ax.set_xlabel('Metrics', fontsize=13, fontweight='bold')
-ax.set_ylabel('Score',   fontsize=13, fontweight='bold')
-ax.set_title('Statistical Evaluation Metrics Comparison\n(Baseline vs Enhanced)',
-             fontsize=15, fontweight='bold')
+bars1 = ax.bar(x-w/2, b_vals, w, label='Baseline', color='#2E86AB', alpha=0.85)
+bars2 = ax.bar(x+w/2, e_vals, w, label='Enhanced', color='#A23B72', alpha=0.85)
 ax.set_xticks(x); ax.set_xticklabels(metrics, fontsize=12)
-ax.legend(fontsize=11, loc='lower right')
-ax.set_ylim(0, 1.1)
-ax.grid(axis='y', alpha=0.3, linestyle='--')
-ax.axhline(y=0.8890, color='red', linestyle=':', linewidth=2, alpha=0.7)
-
+ax.set_ylim(0, 1.1); ax.legend(fontsize=11)
+ax.set_title('Statistical Evaluation Metrics — Baseline vs Enhanced',
+             fontsize=14, fontweight='bold')
+ax.grid(axis='y', alpha=0.3)
+ax.axhline(0.8890, color='red', ls=':', lw=1.5, alpha=0.7)
 for bars in [bars1, bars2]:
     for bar in bars:
-        h = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., h,
-                f'{h:.4f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
-
+        ax.text(bar.get_x()+bar.get_width()/2., bar.get_height(),
+                f'{bar.get_height():.4f}', ha='center', va='bottom', fontsize=9)
 plt.tight_layout()
 plt.savefig('metrics_comparison_chart.png', dpi=300, bbox_inches='tight')
 plt.show()
@@ -1030,30 +820,29 @@ print("✓ Saved: metrics_comparison_chart.png")
 
 
 # ============================================================================
-# CELL 27 - COMPUTATIONAL METRICS COMPARISON
+# CELL 28 - COMPUTATIONAL METRICS CHART
 # ============================================================================
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 colors = ['#2E86AB', '#06A77D']
+labels = ['Baseline', 'Enhanced']
 
-training_times  = [results_baseline['training_time']/60, results_enhanced['training_time']/60]
-inference_speeds= [results_baseline['inference_speed'],   results_enhanced['inference_speed']]
-epochs_list     = [len(history_baseline.history['loss']), len(history_enhanced.history['loss'])]
-models_labels   = ['Baseline', 'Enhanced']
-
-for ax, values, ylabel, title in zip(
+for ax, vals, ylabel, title in zip(
     axes,
-    [training_times, inference_speeds, epochs_list],
-    ['Time (minutes)', 'Images/Second', 'Number of Epochs'],
+    [
+        [results_baseline['training_time']/60, results_enhanced['training_time']/60],
+        [results_baseline['inference_speed'],   results_enhanced['inference_speed']],
+        [len(history_baseline.history['loss']), len(history_enhanced.history['loss'])]
+    ],
+    ['Minutes', 'Images/sec', 'Epochs'],
     ['Training Time', 'Inference Speed', 'Epochs to Convergence']
 ):
-    bars = ax.bar(models_labels, values, color=colors, alpha=0.8)
-    ax.set_ylabel(ylabel, fontsize=11, fontweight='bold')
-    ax.set_title(title,   fontsize=12, fontweight='bold')
-    ax.grid(axis='y', alpha=0.3, linestyle='--')
-    for bar, val in zip(bars, values):
-        ax.text(bar.get_x() + bar.get_width()/2., bar.get_height(),
-                f'{val:.1f}', ha='center', va='bottom',
-                fontsize=10, fontweight='bold')
+    bars = ax.bar(labels, vals, color=colors, alpha=0.85)
+    ax.set_title(title, fontsize=12, fontweight='bold')
+    ax.set_ylabel(ylabel)
+    ax.grid(axis='y', alpha=0.3)
+    for bar, val in zip(bars, vals):
+        ax.text(bar.get_x()+bar.get_width()/2., bar.get_height(),
+                f'{val:.1f}', ha='center', va='bottom', fontsize=11, fontweight='bold')
 
 plt.tight_layout()
 plt.savefig('computational_metrics_comparison.png', dpi=300, bbox_inches='tight')
@@ -1062,10 +851,10 @@ print("✓ Saved: computational_metrics_comparison.png")
 
 
 # ============================================================================
-# CELL 28 - COMPARATIVE ANALYSIS TABLE (Table 4)
+# CELL 29 - COMPARATIVE ANALYSIS TABLE (Table 4)
 # ============================================================================
-print("\n" + "="*70)
-print("COMPARATIVE ANALYSIS - Table 4")
+print("="*70)
+print("COMPARATIVE ANALYSIS — Table 4")
 print("="*70)
 
 comparison = pd.DataFrame({
@@ -1101,36 +890,34 @@ comparison = pd.DataFrame({
 
 print(comparison.to_string(index=False))
 
-acc_change      = (results_enhanced['test_accuracy'] - results_baseline['test_accuracy']) * 100
-time_reduction  = ((results_baseline['training_time'] - results_enhanced['training_time'])
-                   / results_baseline['training_time']) * 100
-speed_improve   = ((results_enhanced['inference_speed'] - results_baseline['inference_speed'])
-                   / results_baseline['inference_speed']) * 100
+acc_pp    = (results_enhanced['test_accuracy'] -
+             results_baseline['test_accuracy']) * 100
+time_red  = ((results_baseline['training_time'] -
+              results_enhanced['training_time'])
+             / results_baseline['training_time']) * 100
+speed_imp = ((results_enhanced['inference_speed'] -
+              results_baseline['inference_speed'])
+             / results_baseline['inference_speed']) * 100
+f1_delta  = results_enhanced['f1_score'] - results_baseline['f1_score']
 
 print(f"\n{'='*70}")
 print("IMPROVEMENT SUMMARY")
 print(f"{'='*70}")
-print(f"Accuracy Change:          {acc_change:+.2f} pp")
-print(f"Training Time Reduction:  {time_reduction:.1f}%")
-print(f"Inference Speed:          {speed_improve:+.1f}%")
-print(f"F1-Score Change:          {(results_enhanced['f1_score']-results_baseline['f1_score']):+.4f}")
+print(f"Accuracy Change:         {acc_pp:+.2f} pp")
+print(f"Training Time Reduction: {time_red:.1f}%")
+print(f"Inference Speed:         {speed_imp:+.1f}%")
+print(f"F1-Score Change:         {f1_delta:+.4f}")
 
 comparison.to_csv('comparative_analysis_table4.csv', index=False)
 print("\n✓ Saved: comparative_analysis_table4.csv")
 
 
 # ============================================================================
-# CELL 29 - OCCLUSION SENSITIVITY BOUNDING BOX VISUALIZATION
+# CELL 30 - OCCLUSION SENSITIVITY FUNCTIONS
 # ============================================================================
-print("\n" + "="*70)
-print("DISEASE LOCALIZATION — OCCLUSION SENSITIVITY + BOUNDING BOX")
-print("="*70)
-
-from PIL import ImageDraw, ImageFont
-import matplotlib.patches as patches
-
 def occlusion_saliency_map(model, img_array, pred_idx,
-                           patch_size=32, stride=16):
+                           patch_size=48, stride=24):
+    """~64 forward passes — ~2x faster than patch=32/stride=16."""
     H, W      = 224, 224
     base_conf = float(model.predict(img_array, verbose=0)[0][pred_idx])
     saliency  = np.zeros((H, W), dtype=np.float32)
@@ -1140,8 +927,8 @@ def occlusion_saliency_map(model, img_array, pred_idx,
         for x in range(0, W - patch_size + 1, stride):
             occluded = img_array.copy()
             occluded[0, y:y+patch_size, x:x+patch_size, :] = 0.5
-            conf  = float(model.predict(occluded, verbose=0)[0][pred_idx])
-            drop  = max(0.0, base_conf - conf)
+            conf = float(model.predict(occluded, verbose=0)[0][pred_idx])
+            drop = max(0.0, base_conf - conf)
             saliency[y:y+patch_size, x:x+patch_size] += drop
             counts  [y:y+patch_size, x:x+patch_size] += 1.0
 
@@ -1151,19 +938,24 @@ def occlusion_saliency_map(model, img_array, pred_idx,
         saliency /= saliency.max()
     return saliency
 
-def saliency_to_bbox(saliency, threshold=0.4):
+
+def saliency_to_bbox(saliency, threshold=0.35):
+    """Single unified box covering ALL hot regions."""
     binary = (saliency >= threshold).astype(np.uint8)
-    if binary.sum() == 0:
-        for t in (0.3, 0.2, 0.1):
-            binary = (saliency >= t).astype(np.uint8)
-            if binary.sum() > 0:
-                break
+    for t in (0.25, 0.2, 0.15, 0.1):
+        if binary.sum() > 0:
+            break
+        binary = (saliency >= t).astype(np.uint8)
     if binary.sum() == 0:
         return None
-    rows = np.any(binary, axis=1); cols = np.any(binary, axis=0)
+    rows = np.any(binary, axis=1)
+    cols = np.any(binary, axis=0)
     y0, y1 = np.where(rows)[0][[0, -1]]
     x0, x1 = np.where(cols)[0][[0, -1]]
-    return int(x0), int(y0), int(x1), int(y1)
+    pad = 8
+    return (max(0, int(x0)-pad), max(0, int(y0)-pad),
+            min(223, int(x1)+pad), min(223, int(y1)+pad))
+
 
 def draw_bbox_on_image(img_pil, bbox, label, confidence,
                        color=(220, 50, 50), lw=4):
@@ -1176,19 +968,18 @@ def draw_bbox_on_image(img_pil, bbox, label, confidence,
     try:
         font = ImageFont.truetype(
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-    except Exception:
+    except:
         font = ImageFont.load_default()
-    tb = draw.textbbox((0,0), text, font=font)
-    tw = tb[2]-tb[0]; th = tb[3]-tb[1]; pad = 4
-    ly = max(0, y0 - th - 2*pad - lw)
+    tb  = draw.textbbox((0, 0), text, font=font)
+    tw  = tb[2]-tb[0]; th = tb[3]-tb[1]; pad = 4
+    ly  = max(0, y0 - th - 2*pad - lw)
     draw.rectangle([x0, ly, x0+tw+2*pad, ly+th+2*pad], fill=color)
-    draw.text((x0+pad, ly+pad), text, fill=(255,255,255), font=font)
+    draw.text((x0+pad, ly+pad), text, fill=(255, 255, 255), font=font)
     return out
 
+
 def visualize_occlusion_bbox(image_path, model, model_name="Model",
-                             patch_size=32, stride=16, threshold=0.4):
-    CLASS_DISPLAY  = {'Cordana':'Cordana','Sanas':'Healthy',
-                      'SigatokaNegra':'Black Sigatoka'}
+                             patch_size=48, stride=24, threshold=0.35):
     idx_to_cls = {v: k for k, v in train_gen_enhanced.class_indices.items()}
 
     img     = Image.open(image_path).convert('RGB')
@@ -1204,37 +995,37 @@ def visualize_occlusion_bbox(image_path, model, model_name="Model",
     box_color  = (50, 200, 50) if pred_cls == 'Sanas' else (220, 50, 50)
 
     print(f"  Predicted: {disp_name} ({confidence:.1f}%)")
-    print(f"  Computing occlusion map...")
+    print(f"  Computing occlusion map (patch={patch_size}, stride={stride})...")
 
     saliency  = occlusion_saliency_map(model, img_arr, pred_idx,
                                        patch_size=patch_size, stride=stride)
     bbox      = saliency_to_bbox(saliency, threshold=threshold)
-    annotated = draw_bbox_on_image(img_224, bbox, disp_name, confidence,
-                                   color=box_color) if bbox else img_224.copy()
+    annotated = (draw_bbox_on_image(img_224, bbox, disp_name, confidence,
+                                    color=box_color)
+                 if bbox else img_224.copy())
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     fig.suptitle(f'{model_name}  |  Occlusion Sensitivity Disease Localization',
                  fontsize=14, fontweight='bold', y=1.01)
-
     axes[0].imshow(img_224)
     axes[0].set_title('Original Image', fontsize=13, fontweight='bold')
     axes[0].axis('off')
-
-    sm = axes[1].imshow(saliency, cmap='hot', interpolation='bilinear', vmin=0, vmax=1)
+    sm = axes[1].imshow(saliency, cmap='hot', interpolation='bilinear',
+                        vmin=0, vmax=1)
     axes[1].set_title('Occlusion Saliency Map\n(bright = important region)',
                       fontsize=13, fontweight='bold')
     axes[1].axis('off')
-    plt.colorbar(sm, ax=axes[1], fraction=0.046, pad=0.04, label='Confidence drop')
-
+    plt.colorbar(sm, ax=axes[1], fraction=0.046, pad=0.04,
+                 label='Confidence drop')
     axes[2].imshow(annotated)
     axes[2].set_title(
-        f'Disease Localization (Bounding Box)\nPredicted: {disp_name} ({confidence:.1f}%)',
+        f'Disease Localization (Bounding Box)\n'
+        f'Predicted: {disp_name} ({confidence:.1f}%)',
         fontsize=13, fontweight='bold')
     axes[2].axis('off')
 
     plt.tight_layout()
-    safe  = model_name.lower().replace(' ', '_')
-    fname = f'occlusion_bbox_{safe}.png'
+    fname = f'occlusion_bbox_{model_name.lower().replace(" ","_")}.png'
     plt.savefig(fname, dpi=300, bbox_inches='tight')
     plt.show()
     print(f"  ✓ Saved: {fname}")
@@ -1242,16 +1033,15 @@ def visualize_occlusion_bbox(image_path, model, model_name="Model",
         print(f"  Box: x=[{bbox[0]},{bbox[2]}]  y=[{bbox[1]},{bbox[3]}]")
     return annotated, saliency
 
+print("✓ Occlusion sensitivity functions ready")
+
 
 # ============================================================================
-# CELL 30 - RUN OCCLUSION VISUALIZATION ON TEST SAMPLES
+# CELL 31 - RUN OCCLUSION VISUALIZATION ON TEST SAMPLES
 # ============================================================================
-from tensorflow.keras.preprocessing import image as keras_image
-
-print("\n" + "="*70)
-print("RUNNING OCCLUSION SENSITIVITY VISUALIZATION")
 print("="*70)
-print("Note: ~30–60 sec per image.\n")
+print("OCCLUSION SENSITIVITY VISUALIZATION")
+print("="*70)
 
 test_samples = {}
 for cls in ['Cordana', 'Sanas', 'SigatokaNegra']:
@@ -1262,37 +1052,25 @@ for cls in ['Cordana', 'Sanas', 'SigatokaNegra']:
         if imgs:
             test_samples[cls] = os.path.join(cls_dir, imgs[0])
 
-print(f"Found {len(test_samples)} test samples")
-
 for cls, img_path in test_samples.items():
     print(f"\n{'='*70}")
-    print(f"Class: {cls}  |  File: {os.path.basename(img_path)}")
+    print(f"Class: {cls}  |  {os.path.basename(img_path)}")
     print(f"{'='*70}")
     visualize_occlusion_bbox(
-        image_path = img_path,
-        model      = enhanced_model,
-        model_name = f"Enhanced {cls}",
-        patch_size = 32,
-        stride     = 16,
-        threshold  = 0.4
+        image_path=img_path, model=enhanced_model,
+        model_name=f"Enhanced {cls}",
+        patch_size=48, stride=24, threshold=0.35
     )
 
-print("\n" + "="*70)
-print("VISUALIZATION COMPLETE")
+print("\n✓ Visualization complete")
+print("  Red = disease  |  Green = healthy")
+
+
+# ============================================================================
+# CELL 32 - 2.6 DEPLOYMENT — SAVE BOTH MODELS
+# ============================================================================
 print("="*70)
-print("Panels:  1=Original | 2=Saliency Map | 3=Bounding Box")
-print("Colors:  Red = disease  |  Green = healthy")
-
-
-# ============================================================================
-# CELL 31 - 2.6 DEPLOYMENT - SAVE BOTH MODELS
-# ============================================================================
-import json
-from datetime import datetime
-import glob
-
-print("\n" + "="*70)
-print("2.6 DEPLOYMENT - BASELINE AND ENHANCED MODELS")
+print("2.6 DEPLOYMENT")
 print("="*70)
 
 def get_next_version():
@@ -1301,188 +1079,148 @@ def get_next_version():
         return 'v1'
     nums = []
     for f in existing:
-        try:
-            nums.append(int(f.split('_v')[1].split('.')[0]))
-        except:
-            continue
+        try:    nums.append(int(f.split('_v')[1].split('.')[0]))
+        except: continue
     return f'v{max(nums)+1}' if nums else 'v1'
 
 VERSION   = get_next_version()
 TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
+print(f"Version: {VERSION} | Timestamp: {TIMESTAMP}")
 
-print(f"Deployment Version: {VERSION}")
-print(f"Timestamp:          {TIMESTAMP}")
+for tag, model, params, history, t_time, extras in [
+    ('baseline', baseline_model, trainable_params_baseline,
+     history_baseline, training_time_baseline, {}),
+    ('enhanced', enhanced_model, trainable_params_enhanced,
+     history_enhanced, training_time_enhanced, {
+         'enhancements': [
+             '80 frozen layers',
+             'BatchNorm + GlobalAveragePooling',
+             'AdamW optimizer',
+             'Cosine LR scheduler',
+             'FP16 mixed precision',
+             'EarlyStopping(patience=30)',
+             'Class weights (Cordana bias fix)',
+             'L2=0.0005, Dropout 0.4/0.3'
+         ]
+     }),
+]:
+    res = results_baseline if tag == 'baseline' else results_enhanced
 
-# Save baseline
-baseline_model_keras    = f'baseline_resnet50_deployment_{VERSION}.keras'
-baseline_model_h5       = f'baseline_resnet50_deployment_{VERSION}.h5'
-baseline_metadata_file  = f'baseline_model_metadata_{VERSION}.json'
+    keras_path = f'{tag}_resnet50_deployment_{VERSION}.keras'
+    h5_path    = f'{tag}_resnet50_deployment_{VERSION}.h5'
+    meta_path  = f'{tag}_model_metadata_{VERSION}.json'
 
-baseline_model.save(baseline_model_keras)
-baseline_model.save(baseline_model_h5)
-print(f"✓ Saved: {baseline_model_keras}")
-print(f"✓ Saved: {baseline_model_h5}")
+    model.save(keras_path)
+    model.save(h5_path)
 
-baseline_metadata = {
-    "version": VERSION, "timestamp": TIMESTAMP, "model_type": "BASELINE",
-    "performance": {
-        "test_accuracy":  float(results_baseline['test_accuracy']),
-        "test_precision": float(results_baseline['precision']),
-        "test_recall":    float(results_baseline['recall']),
-        "test_f1":        float(results_baseline['f1_score']),
-        "test_loss":      float(results_baseline['test_loss'])
-    },
-    "training_info": {
-        "training_time_minutes": float(results_baseline['training_time']/60),
-        "epochs_completed":      len(history_baseline.history['loss'])
+    meta = {
+        "version": VERSION, "timestamp": TIMESTAMP, "model_type": tag.upper(),
+        "performance": {
+            "test_accuracy":  float(res['test_accuracy']),
+            "test_precision": float(res['precision']),
+            "test_recall":    float(res['recall']),
+            "test_f1":        float(res['f1_score']),
+            "test_loss":      float(res['test_loss'])
+        },
+        "training_info": {
+            "training_time_minutes": float(t_time/60),
+            "epochs_completed":      len(history.history['loss'])
+        },
+        **extras
     }
-}
-with open(baseline_metadata_file, 'w') as f:
-    json.dump(baseline_metadata, f, indent=2)
-print(f"✓ Saved: {baseline_metadata_file}")
+    with open(meta_path, 'w') as f:
+        json.dump(meta, f, indent=2)
+    print(f"\n✓ {tag}: {keras_path}, {h5_path}, {meta_path}")
 
-# Save enhanced
-enhanced_model_keras   = f'enhanced_resnet50_deployment_{VERSION}.keras'
-enhanced_model_h5      = f'enhanced_resnet50_deployment_{VERSION}.h5'
-enhanced_metadata_file = f'enhanced_model_metadata_{VERSION}.json'
-class_indices_file     = f'class_indices_{VERSION}.json'
-
-enhanced_model.save(enhanced_model_keras)
-enhanced_model.save(enhanced_model_h5)
-print(f"✓ Saved: {enhanced_model_keras}")
-print(f"✓ Saved: {enhanced_model_h5}")
-
-class_indices = train_gen_enhanced.class_indices
+class_indices_file = f'class_indices_{VERSION}.json'
 with open(class_indices_file, 'w') as f:
-    json.dump(class_indices, f, indent=2)
+    json.dump(train_gen_enhanced.class_indices, f, indent=2)
 print(f"✓ Saved: {class_indices_file}")
 
-enhanced_metadata = {
-    "version": VERSION, "timestamp": TIMESTAMP, "model_type": "ENHANCED",
-    "performance": {
-        "test_accuracy":  float(results_enhanced['test_accuracy']),
-        "test_precision": float(results_enhanced['precision']),
-        "test_recall":    float(results_enhanced['recall']),
-        "test_f1":        float(results_enhanced['f1_score']),
-        "test_loss":      float(results_enhanced['test_loss'])
-    },
-    "training_info": {
-        "training_time_minutes": float(results_enhanced['training_time']/60),
-        "epochs_completed":      len(history_enhanced.history['loss'])
-    },
-    "fixes_applied": [
-        "100 frozen layers (was 50)",
-        "Class weights to fix Cordana bias",
-        "L2=0.001, Dropout 0.5/0.4 (stronger regularization)",
-        "AdamW + Cosine LR unchanged"
-    ]
-}
-with open(enhanced_metadata_file, 'w') as f:
-    json.dump(enhanced_metadata, f, indent=2)
-print(f"✓ Saved: {enhanced_metadata_file}")
-
-print(f"\n✓ Section 2.6 COMPLETE")
-print(f"✓ Deployment version: {VERSION}")
-
 
 # ============================================================================
-# CELL 32 - CONVERT BOTH MODELS TO TFLITE
+# CELL 33 - CONVERT TO TFLITE
 # ============================================================================
-print("\n" + "="*70)
-print("CONVERTING MODELS TO TENSORFLOW LITE")
+print("="*70)
+print("CONVERTING TO TFLITE")
 print("="*70)
 
-baseline_tflite = f'baseline_resnet50_deployment_{VERSION}.tflite'
-enhanced_tflite = f'enhanced_resnet50_deployment_{VERSION}.tflite'
+# Reset to float32 before TFLite export
+mixed_precision.set_global_policy('float32')
 
-# Baseline
-try:
-    conv = tf.lite.TFLiteConverter.from_keras_model(baseline_model)
-    conv.target_spec.supported_ops = [
-        tf.lite.OpsSet.TFLITE_BUILTINS,
-        tf.lite.OpsSet.SELECT_TF_OPS
-    ]
-    conv.optimizations = [tf.lite.Optimize.DEFAULT]
-    tflite_b = conv.convert()
-    with open(baseline_tflite, 'wb') as f:
-        f.write(tflite_b)
-    print(f"✓ Saved: {baseline_tflite} ({len(tflite_b)/(1024*1024):.2f} MB)")
-except Exception as e:
-    print(f"✗ Baseline TFLite failed: {e}")
+for tag, model in [('baseline', baseline_model), ('enhanced', enhanced_model)]:
+    tflite_path = f'{tag}_resnet50_deployment_{VERSION}.tflite'
+    try:
+        conv = tf.lite.TFLiteConverter.from_keras_model(model)
+        conv.target_spec.supported_ops = [
+            tf.lite.OpsSet.TFLITE_BUILTINS,
+            tf.lite.OpsSet.SELECT_TF_OPS
+        ]
+        conv.optimizations = [tf.lite.Optimize.DEFAULT]
+        tflite_bytes = conv.convert()
+        with open(tflite_path, 'wb') as f:
+            f.write(tflite_bytes)
+        print(f"✓ {tag}: {tflite_path} "
+              f"({len(tflite_bytes)/(1024*1024):.2f} MB)")
+    except Exception as e:
+        print(f"✗ {tag} failed: {e}")
 
-# Enhanced
-try:
-    conv = tf.lite.TFLiteConverter.from_keras_model(enhanced_model)
-    conv.target_spec.supported_ops = [
-        tf.lite.OpsSet.TFLITE_BUILTINS,
-        tf.lite.OpsSet.SELECT_TF_OPS
-    ]
-    conv.optimizations = [tf.lite.Optimize.DEFAULT]
-    tflite_e = conv.convert()
-    with open(enhanced_tflite, 'wb') as f:
-        f.write(tflite_e)
-    print(f"✓ Saved: {enhanced_tflite} ({len(tflite_e)/(1024*1024):.2f} MB)")
-except Exception as e:
-    print(f"✗ Enhanced TFLite failed: {e}")
-
-print("\n✓ Both models ready for mobile deployment")
-print("="*70)
+print("\n✓ Both models ready for deployment")
 
 
 # ============================================================================
-# CELL 33 - SINGLE IMAGE PREDICTION DEMO
+# CELL 34 - SINGLE IMAGE PREDICTION DEMO
 # ============================================================================
-print("\n" + "="*70)
-print("SINGLE IMAGE PREDICTION TEST")
-print("="*70)
-
 import io
 from google.colab import files
 
+print("="*70)
+print("SINGLE IMAGE PREDICTION DEMO")
+print("="*70)
+
 model_files = sorted(
-    glob.glob("enhanced_resnet50_deployment_v*.keras") +
-    glob.glob("enhanced_best.h5"),
-    key=lambda x: x
+    glob.glob(f"enhanced_resnet50_deployment_{VERSION}.keras") +
+    glob.glob("enhanced_best.h5")
 )
-MODEL_PATH = model_files[-1] if model_files else 'enhanced_best.h5'
-print(f"Using model: {MODEL_PATH}")
+MODEL_PATH = model_files[0] if model_files else 'enhanced_best.h5'
+print(f"Using: {MODEL_PATH}")
 
 demo_model = keras.models.load_model(MODEL_PATH)
 
-with open(class_indices_file, 'r') as f:
-    class_indices_loaded = json.load(f)
-index_to_class_demo = {v: k for k, v in class_indices_loaded.items()}
+with open(class_indices_file) as f:
+    ci = json.load(f)
+idx_to_cls_demo = {v: k for k, v in ci.items()}
 
-print("\nUpload a banana leaf image for testing...")
+print("\nUpload a banana leaf image...")
 uploaded = files.upload()
 
 if uploaded:
-    file_name = list(uploaded.keys())[0]
-    print(f"\n✓ File received: {file_name}")
-
-    img      = Image.open(io.BytesIO(uploaded[file_name])).convert("RGB")
-    img_arr  = keras_image.img_to_array(img.resize((224, 224))) / 255.0
-    img_arr  = np.expand_dims(img_arr, 0)
+    fname = list(uploaded.keys())[0]
+    img   = Image.open(io.BytesIO(uploaded[fname])).convert("RGB")
+    arr   = keras_image.img_to_array(img.resize((224, 224))) / 255.0
+    arr   = np.expand_dims(arr, 0)
 
     plt.figure(figsize=(6, 6))
-    plt.imshow(img); plt.axis("off")
-    plt.title("Uploaded Image", fontsize=14, fontweight="bold")
+    plt.imshow(img); plt.axis('off')
+    plt.title("Uploaded Image", fontsize=14, fontweight='bold')
     plt.show()
 
-    preds          = demo_model.predict(img_arr, verbose=0)[0]
-    predicted_idx  = np.argmax(preds)
-    confidence     = preds[predicted_idx] * 100
-    predicted_cls  = index_to_class_demo[predicted_idx]
-    CLASS_DISPLAY  = {'Cordana':'Cordana','Sanas':'Healthy',
-                      'SigatokaNegra':'Black Sigatoka'}
-    display_name   = CLASS_DISPLAY.get(predicted_cls, predicted_cls)
+    preds      = demo_model.predict(arr, verbose=0)[0]
+    pred_idx   = int(np.argmax(preds))
+    confidence = float(preds[pred_idx]) * 100
+    pred_cls   = idx_to_cls_demo[pred_idx]
+    disp_name  = CLASS_DISPLAY.get(pred_cls, pred_cls)
 
     print("\n" + "="*70)
     print("PREDICTION RESULTS")
     print("="*70)
-    print(f"Predicted Class: {display_name}")
-    print(f"Confidence:      {confidence:.2f}%")
-    print(f"Model Version:   {VERSION}")
+    print(f"Predicted: {disp_name}")
+    print(f"Confidence: {confidence:.2f}%")
+    print(f"Version: {VERSION}")
+    print("\nAll Probabilities:")
+    for i, prob in enumerate(preds):
+        n = CLASS_DISPLAY.get(idx_to_cls_demo[i], idx_to_cls_demo[i])
+        print(f"  {n:<20} {prob*100:.2f}%")
     print("="*70)
 else:
     print("No file uploaded.")

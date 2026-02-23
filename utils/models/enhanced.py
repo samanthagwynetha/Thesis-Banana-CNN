@@ -9,7 +9,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 ARTIFACTS_DIR = os.path.join(BASE_DIR, "artifacts")
 
 MODEL_PATH = os.path.join(
-    ARTIFACTS_DIR, "enhanced_resnet50_deployment_v1.tflite"
+    ARTIFACTS_DIR, "enhanced_resnet50_deployment_v2.tflite"
 )
 CLASS_MAPPING_PATH = os.path.join(
     ARTIFACTS_DIR, "class_indices_v1.json"
@@ -55,7 +55,6 @@ def predict(img_array):
             INDEX_TO_CLASS.get(i, str(i)): float(p) * 100
             for i, p in enumerate(preds)
         },
-        # Use lowercase, and show 3 decimals
         "inference_time_ms": float(f"{inference_time:.2f}")
     }
 

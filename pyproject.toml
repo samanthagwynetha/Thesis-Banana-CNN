@@ -1,7 +1,7 @@
 [project]
 name = "banana-leaf"
 version = "0.1.0"
-description = "Add your description here"
+description = "This is our Thesis Project as Computer Science Student at The University of Mindanao"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
