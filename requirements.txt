@@ -59,4 +59,5 @@ typing_extensions==4.15.0
 urllib3==2.6.3
 wrapt==1.14.2
 
-gunicorn==25.0.1
+gunicorn==25.0.1tensorflow
+gunicorn
