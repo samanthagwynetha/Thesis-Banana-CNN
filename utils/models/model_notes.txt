@@ -11,3 +11,14 @@ Update as of 2/23/26:
     better if it improves.
 
     PS: assign someone to search in advance some RRL to support our study incase of our research is a fail.
+
+
+Update as of 2/26/26:
+- applied v4 models (baseline and enhanced) use their following class indices.
+- issues:
+    - the enhanced is still lacking a bit more of accuracy but on the brighter side it somehow improved the inference time
+    and somehow it almost outperformed the baseline.
+- adjustments: 
+    - a little bit of tweaking in the enhanced model.
+- ToDo:
+    - before tweaking the enhanced part pls double check again the accuracy and the training.
