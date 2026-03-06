@@ -7,6 +7,23 @@ document.addEventListener('DOMContentLoaded', function() {
   const uploadArea = document.getElementById("uploadArea");
   const removeImageBtn = document.getElementById("removeImage");
   const analyzeButton = document.getElementById("analyzeButton");
+  const fileTypeError = document.getElementById("fileTypeError");
+
+  const ALLOWED_TYPES = ["image/jpeg", "image/png"];
+  const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png"];
+
+  function isValidFileType(file) {
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    return ALLOWED_TYPES.includes(file.type) && ALLOWED_EXTENSIONS.includes(ext);
+  }
+
+  function showFileTypeError() {
+    if (fileTypeError) fileTypeError.classList.remove("hidden");
+  }
+
+  function hideFileTypeError() {
+    if (fileTypeError) fileTypeError.classList.add("hidden");
+  }
 
   console.log('Upload form script loaded');
   console.log('File input:', fileInput);
@@ -25,6 +42,12 @@ document.addEventListener('DOMContentLoaded', function() {
       console.log('File input changed');
       const file = e.target.files[0];
       if (file) {
+        if (!isValidFileType(file)) {
+          showFileTypeError();
+          fileInput.value = "";
+          return;
+        }
+        hideFileTypeError();
         console.log('File selected:', file.name);
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -55,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
     removeImageBtn.addEventListener("click", () => {
       fileInput.value = "";
       imagePreview.src = "";
+      hideFileTypeError();
       imagePreviewContainer.classList.add("hidden");
       uploadArea.classList.remove("hidden");
       analyzeButton.disabled = true;
@@ -97,7 +121,12 @@ document.addEventListener('DOMContentLoaded', function() {
       uploadArea.style.borderColor = "";
 
       const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith("image/")) {
+      if (file) {
+        if (!isValidFileType(file)) {
+          showFileTypeError();
+          return;
+        }
+        hideFileTypeError();
         fileInput.files = e.dataTransfer.files;
         const event = new Event("change");
         fileInput.dispatchEvent(event);
