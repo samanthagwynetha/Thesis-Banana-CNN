@@ -47,9 +47,17 @@
                         </div>
                     </div>
 
+                    <!-- File Type Error Alert -->
+                    <div id="fileTypeError" class="hidden mb-4 flex items-start space-x-3 bg-red-900 bg-opacity-50 border border-red-500 text-red-300 rounded-xl px-4 py-3 text-sm">
+                        <svg class="w-5 h-5 mt-0.5 flex-shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path>
+                        </svg>
+                        <span>Invalid file type. Please upload a <strong>JPG, JPEG, or PNG</strong> image only.</span>
+                    </div>
+
                     <!-- Upload Area -->
                     <div id="uploadArea" class="upload-zone rounded-xl p-12 text-center cursor-pointer bg-gray-900 bg-opacity-40">
-                        <input type="file" name="image" id="fileInput" accept="image/*" class="hidden" required>
+                        <input type="file" name="image" id="fileInput" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="hidden" required>
                         <div class="flex flex-col items-center justify-center space-y-4">
                             <div class="bg-gray-700 bg-opacity-60 rounded-full p-5">
                                 <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
