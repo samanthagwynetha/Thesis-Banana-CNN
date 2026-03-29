@@ -23,6 +23,26 @@
             transition: width 0.3s ease;
             width: var(--confidence);
         }
+        .severity-none    { color: #4ade80; border-color: #4ade80; background: rgba(74,222,128,0.08); }
+        .severity-moderate{ color: #facc15; border-color: #facc15; background: rgba(250,204,21,0.08); }
+        .severity-severe  { color: #f87171; border-color: #f87171; background: rgba(248,113,113,0.08); }
+
+        .info-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .info-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #6b7280;
+        }
+        .info-value {
+            font-size: 0.82rem;
+            color: #d1d5db;
+            line-height: 1.5;
+        }
     </style>
 
     <!-- Main Content - Results -->
@@ -39,7 +59,6 @@
             <!-- Image Preview -->
             <div class="flex justify-center mb-6">
                 <div class="bg-gray-800 bg-opacity-60 rounded-2xl p-3 border border-green-500">
-                    <!-- <img src="{{ url_for('static', filename='uploads/' + image_path) }}"  -->
                     <img src="{{ url_for('static', filename='uploads/' + image_path) }}"
                         alt="Analyzed banana leaf"
                         class="w-80 h-auto rounded-lg">
@@ -175,6 +194,42 @@
                                 <p class="text-xs text-gray-500">Inference Time</p>
                                 <p class="text-base font-semibold text-green-400">{{ enhanced.inference_time_ms }} ms</p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Disease Info Block (based on Enhanced Model) -->
+            <div class="max-w-4xl mx-auto mt-6">
+                <div class="bg-gray-800 bg-opacity-60 border border-gray-700 rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-5">
+                        <div>
+                            <h3 class="text-lg font-semibold text-white mb-1">Disease Information</h3>
+                            <p class="text-xs text-gray-500">Based on Enhanced Model prediction</p>
+                        </div>
+                        {% set sev = enhanced.severity | lower %}
+                        <span class="inline-block text-xs font-semibold px-3 py-1 rounded-full border
+                            {% if sev == 'none' %}severity-none
+                            {% elif sev == 'moderate' %}severity-moderate
+                            {% elif sev == 'severe' %}severity-severe
+                            {% else %}severity-moderate{% endif %}">
+                            {{ enhanced.severity }} Severity
+                        </span>
+                    </div>
+
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div class="info-row">
+                            <span class="info-label">Description</span>
+                            <span class="info-value">{{ enhanced.description }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Symptoms</span>
+                            <span class="info-value">{{ enhanced.symptoms }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Recommended Treatment</span>
+                            <span class="info-value">{{ enhanced.treatment }}</span>
                         </div>
                     </div>
                 </div>
