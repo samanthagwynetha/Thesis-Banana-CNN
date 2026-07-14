@@ -288,22 +288,6 @@ Thesis-Banana-CNN/
 
 ---
 
-## 📖 Citation
-
-If you use this work, please cite:
-
-```
-@thesis{sinining2026banana,
-  title   = {Enhanced ResNet50 for Banana Leaf Disease Detection},
-  author  = {Sinining, EEJ},
-  year    = {2026},
-  school  = {[Your Institution]},
-  note    = {https://github.com/eej-sinining/Thesis-Banana-CNN}
-}
-```
-
----
-
 ## 🪪 License
 
 This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
